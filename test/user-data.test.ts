@@ -23,6 +23,7 @@ test('installs the aws cli with the official installer and docker from the docke
   expect(script).toContain('https://awscli.amazonaws.com/v2/install.sh');
   expect(script).toContain('docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin');
   expect(script).toContain('"max-size": "50m"');
+  expect(script).toContain('"max-file": "3"');
 });
 
 test('mounts the data volume by label and formats only when blank', () => {
@@ -46,6 +47,8 @@ test('fetches compose and secret at every service start', () => {
 test('installs a systemd unit that stops the container gracefully', () => {
   expect(script).toContain('Requires=docker.service');
   expect(script).toContain('After=docker.service network-online.target');
+  expect(script).toContain('Type=oneshot');
+  expect(script).toContain('RemainAfterExit=yes');
   expect(script).toContain(`ExecStart=/usr/bin/docker compose -f ${MOUNT_POINT}/compose.yaml up -d`);
   expect(script).toContain(`ExecStop=/usr/bin/docker compose -f ${MOUNT_POINT}/compose.yaml stop -t 120`);
   expect(script).toContain('TimeoutStopSec=150');
