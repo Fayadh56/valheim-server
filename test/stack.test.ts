@@ -127,3 +127,26 @@ describe('backups', () => {
     expect(JSON.stringify(template.toJSON())).toContain('service-role/AWSDataLifecycleManagerServiceRole');
   });
 });
+
+describe('schedule', () => {
+  test('creates nothing when disabled', () => {
+    synth().resourceCountIs('AWS::Scheduler::Schedule', 0);
+  });
+
+  test('creates stop and start schedules in toronto time when enabled', () => {
+    const template = synth({ schedule: { enabled: true, stopAt: '03:00', startAt: '16:00' } });
+    template.resourceCountIs('AWS::Scheduler::Schedule', 2);
+    template.hasResourceProperties('AWS::Scheduler::Schedule', Match.objectLike({
+      ScheduleExpression: 'cron(0 3 * * ? *)',
+      ScheduleExpressionTimezone: 'America/Toronto',
+      FlexibleTimeWindow: { Mode: 'OFF' },
+    }));
+    template.hasResourceProperties('AWS::Scheduler::Schedule', Match.objectLike({
+      ScheduleExpression: 'cron(0 16 * * ? *)',
+    }));
+    const json = JSON.stringify(template.toJSON());
+    expect(json).toContain('aws-sdk:ec2:stopInstances');
+    expect(json).toContain('aws-sdk:ec2:startInstances');
+    expect(json).not.toContain('"Resource":"*"');
+  });
+});
