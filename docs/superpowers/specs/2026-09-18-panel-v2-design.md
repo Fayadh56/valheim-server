@@ -74,7 +74,7 @@ Details:
 | `POST /schedule` | cookie + same origin | Fields `mode` (`always` or `nightly`), `stopAt`, `startAt`, `sleepWhenEmpty` (checkbox). Updates both EventBridge schedules (state from `mode`) and writes the sleep parameter. Redirect `/?msg=schedule-saved`. |
 | `GET /manifest.webmanifest` | none | JSON manifest: name "Valheim server", short_name "Valheim", start_url "/", display "standalone", background_color `#14201B`, theme_color `#14201B`, icons `/icon.svg` (any, maskable) and `/icon-180.png`. `content-type: application/manifest+json`. |
 | `GET /icon.svg` | none | The longhouse mark, 512 viewBox, Bronze on Pine night. `cache-control: public, max-age=86400`. |
-| `GET /icon-180.png` | none | Base64 constant from `lambda/panel/icon.ts`, rendered once from the SVG by `scripts/render-icon.sh` (macOS `qlmanage`). Same caching. |
+| `GET /icon-180.png` | none | Base64 constant from `lambda/panel/icon.ts`, rendered once from the SVG by `scripts/render-icon.ts` (macOS `qlmanage`). Same caching. |
 
 Head tags on every HTML page: `<meta name="theme-color" content="#14201B">`,
 `<link rel="manifest" href="/manifest.webmanifest">`, `<link rel="apple-touch-icon" href="/icon-180.png">`,
@@ -124,7 +124,7 @@ Head tags on every HTML page: `<meta name="theme-color" content="#14201B">`,
 | `lambda/panel/index.ts` | New routes, `mode` radio handling, sleep setting read/write, status JSON. |
 | `lib/control-panel.ts` | Second `NodejsFunction` (sleeper), rate schedule via `scheduler.Schedule` + `targets.LambdaInvoke`, two parameters, IAM additions. |
 | `lib/config.ts` | `panel.sleepWhenEmpty`. |
-| `scripts/render-icon.sh` | Renders `lambda/panel/icon.svg` (written by a small tsx script from `renderIconSvg`) to a 180 px PNG with `qlmanage` and writes `lambda/panel/icon.ts`. Run manually when the icon changes. |
+| `scripts/render-icon.ts` | Renders `lambda/panel/icon.svg` (written by a small tsx script from `renderIconSvg`) to a 180 px PNG with `qlmanage` and writes `lambda/panel/icon.ts`. Run manually when the icon changes. |
 | `README.md` | Night watch and sleep-when-empty paragraph, home screen line. |
 
 ## Testing
