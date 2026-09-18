@@ -164,6 +164,15 @@ describe('schedule', () => {
       }),
     });
     expect(Object.keys(roles)).toHaveLength(1);
+    const statements = Object.values(template.findResources('AWS::IAM::Policy'))
+      .flatMap((p) => p.Properties.PolicyDocument.Statement as Array<{ Action: string | string[]; Resource: unknown }>);
+    const ec2Statements = statements.filter((s) => ['ec2:StopInstances', 'ec2:StartInstances'].includes(String(s.Action)));
+    expect(ec2Statements).toHaveLength(2);
+    for (const statement of ec2Statements) {
+      expect(statement.Resource).not.toBe('*');
+      expect(JSON.stringify(statement.Resource)).toMatch(/:ec2:us-east-1:623096509435:instance\//);
+    }
+    expect(json).not.toContain('"Resource":"*"');
   });
 });
 
