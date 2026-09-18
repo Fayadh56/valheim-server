@@ -1459,6 +1459,8 @@ def install(package, plugins_root, cache, zips):
         extract(zip_path, staging)
     except (ValueError, zipfile.BadZipFile) as error:
         shutil.rmtree(staging, ignore_errors=True)
+        # a bad archive must not stay cached, or the package could never upgrade again
+        zip_path.unlink(missing_ok=True)
         log(f"warning: skipping {folder_name(package)} {package['version']}: {error}")
         return
     (staging / MARKER).write_text(package["version"])
