@@ -1,3 +1,5 @@
+import { playersWatcherInstall } from './players-watcher';
+
 export const MOUNT_POINT = '/opt/valheim';
 
 export interface UserDataOptions {
@@ -93,5 +95,7 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
 systemctl enable --now valheim.service
+
+${playersWatcherInstall(o.region)}
 `;
 }

@@ -12,6 +12,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { SleepWhenEmptyConfig } from './config';
 import { GAME_PORT, QUERY_PORT } from './network';
+import { PLAYERS_PARAMETER_NAME } from './players-watcher';
 import { Schedule, START_SCHEDULE_NAME, STOP_SCHEDULE_NAME } from './schedule';
 
 export const SLEEP_ENABLED_PARAMETER = '/valheim/panel/sleep-when-empty';
@@ -26,6 +27,7 @@ export interface ControlPanelProps {
   timezone: string;
   serverName: string;
   sleepWhenEmpty: SleepWhenEmptyConfig;
+  playersParameter: ssm.IStringParameter;
 }
 
 export class ControlPanel extends Construct {
@@ -82,6 +84,7 @@ export class ControlPanel extends Construct {
         START_SCHEDULE_NAME,
         TIMEZONE: props.timezone,
         SERVER_NAME: props.serverName,
+        PLAYERS_PARAMETER: PLAYERS_PARAMETER_NAME,
       },
     });
     panel.addToRolePolicy(describeInstances);
@@ -94,6 +97,7 @@ export class ControlPanel extends Construct {
     panel.addToRolePolicy(new iam.PolicyStatement({ actions: ['iam:PassRole'], resources: [props.schedule.targetRole.roleArn] }));
     panel.addToRolePolicy(parameterAccess);
     props.secret.grantRead(panel);
+    props.playersParameter.grantRead(panel);
     this.url = panel.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.NONE });
 
     const sleeper = new nodejs.NodejsFunction(this, 'Sleeper', {

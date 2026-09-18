@@ -46,8 +46,9 @@ find it there.
 
 `npm run server -- panel` prints the URL. Friends log in with the server password (cookie
 lasts 30 days) and can add the page to their phone's home screen. The hall lights up when the
-server is running and shows who's on; the page refreshes itself. Start and Stop act
-immediately; Stop asks for confirmation when players are on.
+server is running and lists who's on by character name; the page refreshes itself. Start and Stop ask
+for confirmation first. Names come from a small watcher on the instance; new instances install
+it at boot and the current one gets it with `npm run install-watcher`.
 
 Night watch has two settings. "Sleeps at / wakes at" turns the nightly schedule on with those
 times. "Sleep when nobody's online for an hour" is off until someone ticks it; when on, a

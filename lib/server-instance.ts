@@ -1,9 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { ServerConfig } from './config';
 import { Network } from './network';
+import { PLAYERS_PARAMETER_NAME } from './players-watcher';
 import { ServerSettings } from './server-settings';
 import { buildUserData } from './user-data';
 
@@ -21,6 +23,7 @@ export class ServerInstance extends Construct {
   readonly instance: ec2.Instance;
   readonly dataVolume: ec2.Volume;
   readonly role: iam.Role;
+  readonly playersParameter: ssm.StringParameter;
 
   constructor(scope: Construct, id: string, props: ServerInstanceProps) {
     super(scope, id);
@@ -33,6 +36,13 @@ export class ServerInstance extends Construct {
     });
     settings.secret.grantRead(this.role);
     settings.composeParameter.grantRead(this.role);
+
+    this.playersParameter = new ssm.StringParameter(this, 'PlayersParameter', {
+      parameterName: PLAYERS_PARAMETER_NAME,
+      stringValue: JSON.stringify({ players: [], updatedAt: '1970-01-01T00:00:00.000Z' }),
+      description: 'Who is online in Valheim, written by the watcher on the instance',
+    });
+    this.playersParameter.grantWrite(this.role);
 
     this.dataVolume = new ec2.Volume(this, 'DataVolume', {
       availabilityZone: config.az,

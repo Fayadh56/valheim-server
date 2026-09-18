@@ -38,6 +38,7 @@ export class ValheimServerStack extends cdk.Stack {
         timezone: config.timezone,
         serverName: config.serverName,
         sleepWhenEmpty: config.panel.sleepWhenEmpty,
+        playersParameter: server.playersParameter,
       });
       new cdk.CfnOutput(this, 'PanelUrl', { value: panel.url.url, description: 'Control panel for friends' });
     }

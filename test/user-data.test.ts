@@ -54,3 +54,10 @@ test('installs a systemd unit that stops the container gracefully', () => {
   expect(script).toContain('TimeoutStopSec=150');
   expect(script).toContain('systemctl enable --now valheim.service');
 });
+
+test('installs the player watcher service', () => {
+  expect(script).toContain('cat > /usr/local/bin/valheim-players <<\'PYEOF\'');
+  expect(script).toContain('Got character ZDOID from');
+  expect(script).toContain('ExecStart=/usr/bin/python3 /usr/local/bin/valheim-players /valheim/panel/players us-east-1');
+  expect(script).toContain('systemctl enable --now valheim-players.service');
+});

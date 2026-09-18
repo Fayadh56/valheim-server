@@ -100,6 +100,22 @@ describe('server instance', () => {
     expect(json).not.toMatch(/SERVER_PASS=[A-Za-z0-9]{12}/);
     expect(json).not.toMatch(/set -[a-z]*x/);
   });
+
+  test('players parameter exists and the instance role may write it', () => {
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: '/valheim/panel/players',
+      Type: 'String',
+      Value: '{"players":[],"updatedAt":"1970-01-01T00:00:00.000Z"}',
+    });
+    // the parameter arn is a Fn::Join of the partition and a Ref, so match the statement by the parameter's logical id
+    const [playersParameterId] = Object.keys(template.findResources('AWS::SSM::Parameter', {
+      Properties: Match.objectLike({ Name: '/valheim/panel/players' }),
+    }));
+    const statements = Object.values(template.findResources('AWS::IAM::Policy'))
+      .flatMap((p) => p.Properties.PolicyDocument.Statement as Array<{ Action: string | string[]; Resource: unknown }>);
+    const writers = statements.filter((s) => String(s.Action).includes('ssm:PutParameter') && JSON.stringify(s.Resource).includes(playersParameterId));
+    expect(writers.length).toBeGreaterThanOrEqual(1);
+  });
 });
 
 describe('backups', () => {
@@ -236,7 +252,7 @@ describe('control panel', () => {
         STOP_SCHEDULE_NAME: 'valheim-stop', START_SCHEDULE_NAME: 'valheim-start', GAME_PORT: '2456', QUERY_PORT: '2457',
         TIMEZONE: 'America/Toronto', SERVER_NAME: 'valheim-osrs-nerds',
         SLEEP_ENABLED_PARAMETER: '/valheim/panel/sleep-when-empty', EMPTY_SINCE_PARAMETER: '/valheim/panel/empty-since',
-        SLEEP_IDLE_MINUTES: '60',
+        SLEEP_IDLE_MINUTES: '60', PLAYERS_PARAMETER: '/valheim/panel/players',
         SERVER_HOST: { 'Fn::GetAtt': [Match.stringLikeRegexp('^NetworkEip'), 'PublicIp'] },
       }) },
     }));
@@ -284,7 +300,7 @@ describe('control panel', () => {
     const off = synth({ panel: { ...config.panel, enabled: false } });
     off.resourceCountIs('AWS::Lambda::Function', 0);
     off.resourceCountIs('AWS::Lambda::Url', 0);
-    off.resourceCountIs('AWS::SSM::Parameter', 1);
+    off.resourceCountIs('AWS::SSM::Parameter', 2);
     off.resourceCountIs('AWS::Scheduler::Schedule', 2);
     expect(Object.keys(off.findOutputs('*'))).not.toContain('PanelUrl');
   });
