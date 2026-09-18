@@ -39,6 +39,8 @@ export class ValheimServerStack extends cdk.Stack {
         serverName: config.serverName,
         sleepWhenEmpty: config.panel.sleepWhenEmpty,
         playersParameter: server.playersParameter,
+        modsParameter: settings.modsParameter,
+        profileCodeParameter: settings.profileCodeParameter,
       });
       new cdk.CfnOutput(this, 'PanelUrl', { value: panel.url.url, description: 'Control panel for friends' });
     }

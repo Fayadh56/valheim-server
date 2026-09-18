@@ -1,6 +1,6 @@
-import { playersWatcherInstall } from './players-watcher';
+import { installScripts, MOUNT_POINT } from './instance-scripts';
 
-export const MOUNT_POINT = '/opt/valheim';
+export { MOUNT_POINT } from './instance-scripts';
 
 export interface UserDataOptions {
   region: string;
@@ -57,22 +57,7 @@ mount -a
 mkdir -p ${MOUNT_POINT}/config ${MOUNT_POINT}/data
 chown -R 1000:1000 ${MOUNT_POINT}/config ${MOUNT_POINT}/data
 
-cat > /usr/local/bin/valheim-fetch-config <<'EOF'
-#!/bin/bash
-set -euo pipefail
-REGION="${o.region}"
-PARAM="${o.composeParameterName}"
-SECRET="${o.secretArn}"
-aws ssm get-parameter --region "$REGION" --name "$PARAM" --query Parameter.Value --output text > ${MOUNT_POINT}/compose.yaml.tmp
-mv ${MOUNT_POINT}/compose.yaml.tmp ${MOUNT_POINT}/compose.yaml
-SECRET_JSON="$(aws secretsmanager get-secret-value --region "$REGION" --secret-id "$SECRET" --query SecretString --output text)"
-umask 077
-printf 'SERVER_PASS=%s\\nDISCORD_WEBHOOK=%s\\n' \\
-  "$(jq -r .password <<<"$SECRET_JSON")" \\
-  "$(jq -r .discordWebhook <<<"$SECRET_JSON")" > ${MOUNT_POINT}/.env.tmp
-mv ${MOUNT_POINT}/.env.tmp ${MOUNT_POINT}/.env
-EOF
-chmod 0755 /usr/local/bin/valheim-fetch-config
+${installScripts({ region: o.region, composeParameterName: o.composeParameterName, secretArn: o.secretArn })}
 
 cat > /etc/systemd/system/valheim.service <<'EOF'
 [Unit]
@@ -95,7 +80,5 @@ WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
 systemctl enable --now valheim.service
-
-${playersWatcherInstall(o.region)}
 `;
 }

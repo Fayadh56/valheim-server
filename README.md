@@ -48,7 +48,7 @@ find it there.
 lasts 30 days) and can add the page to their phone's home screen. The hall lights up when the
 server is running and lists who's on by character name; the page refreshes itself. Start and Stop ask
 for confirmation first. Names come from a small watcher on the instance; new instances install
-it at boot and the current one gets it with `npm run install-watcher`.
+it at boot and the current one gets it with `npm run install-scripts`.
 
 Night watch has two settings. "Sleeps at / wakes at" turns the nightly schedule on with those
 times. "Sleep when nobody's online for an hour" is off until someone ticks it; when on, a
@@ -82,8 +82,11 @@ world to 1.0's directory format. This is one way. Keep a copy of the old files.
 
 ## Mods
 
-Set `BEPINEX: "true"` in `lib/compose.ts`, deploy, restart. Mods go in
-`/opt/valheim/config/bepinex/plugins/`.
+`config.mods` in `lib/config.ts` pins every package. The server installs exactly those versions at
+each start; friends install the same set with one r2modman profile code, shown on the panel. To
+change mods: edit the list, `npm run deploy`, `npm run server -- restart`, `npm run share-profile`.
+Config overrides go in `server/mods/config/<file>` (only the keys that differ) and ship with the
+deploy. Turning `enabled` off returns the server to vanilla on the next restart.
 
 ## Maintenance
 

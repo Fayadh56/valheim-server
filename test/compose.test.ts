@@ -71,3 +71,8 @@ test('adds discord hooks only when enabled, with compose-escaped variable', () =
 test('lists the server publicly so the panel can query player count', () => {
   expect(service().environment.SERVER_PUBLIC).toBe('true');
 });
+
+test('turns BepInEx on only when mods are enabled', () => {
+  expect(renderCompose(config)).toContain('BEPINEX: "true"');
+  expect(renderCompose({ ...config, mods: { ...config.mods, enabled: false } })).not.toContain('BEPINEX');
+});

@@ -22,7 +22,6 @@ WantedBy=multi-user.target
 `;
 }
 
-// Shared by cloud-init on new instances and by scripts/install-watcher.ts on the live one
 export function playersWatcherInstall(region: string): string {
   return `cat > ${PLAYERS_WATCHER_PATH} <<'PYEOF'
 ${PLAYERS_WATCHER_SCRIPT}

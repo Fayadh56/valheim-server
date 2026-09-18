@@ -34,7 +34,7 @@ test('mounts the data volume by label and formats only when blank', () => {
   expect(script).toContain(`LABEL=valheim ${MOUNT_POINT} ext4 defaults,nofail 0 2`);
 });
 
-test('fetches compose and secret at every service start', () => {
+test('fetches compose, secret, mods and overrides at every service start, then syncs mods', () => {
   expect(script).toContain('aws ssm get-parameter --region "$REGION" --name "$PARAM"');
   expect(script).toContain('aws secretsmanager get-secret-value --region "$REGION" --secret-id "$SECRET"');
   expect(script).toContain('REGION="us-east-1"');
@@ -42,6 +42,15 @@ test('fetches compose and secret at every service start', () => {
   expect(script).toContain('SECRET="arn:aws:secretsmanager:us-east-1:309448544182:secret:valheim-AbCdEf"');
   expect(script).toContain('umask 077');
   expect(script).toContain('ExecStartPre=/usr/local/bin/valheim-fetch-config');
+  expect(script).toContain('aws ssm get-parameter --region "$REGION" --name /valheim/mods/packages');
+  expect(script).toContain('aws ssm get-parameters-by-path --region "$REGION" --path /valheim/mods/config/');
+  expect(script).toContain('/usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json');
+  expect(script).toContain("cat > /usr/local/bin/valheim-mods <<'PYEOF'");
+  expect(script).toContain('Got character ZDOID from');
+  const fetch = script.indexOf('cat > /usr/local/bin/valheim-fetch-config');
+  const unit = script.indexOf('cat > /etc/systemd/system/valheim.service');
+  expect(fetch).toBeGreaterThan(0);
+  expect(fetch).toBeLessThan(unit);
 });
 
 test('installs a systemd unit that stops the container gracefully', () => {
@@ -56,8 +65,6 @@ test('installs a systemd unit that stops the container gracefully', () => {
 });
 
 test('installs the player watcher service', () => {
-  expect(script).toContain('cat > /usr/local/bin/valheim-players <<\'PYEOF\'');
-  expect(script).toContain('Got character ZDOID from');
   expect(script).toContain('ExecStart=/usr/bin/python3 /usr/local/bin/valheim-players /valheim/panel/players us-east-1');
   expect(script).toContain('systemctl enable --now valheim-players.service');
 });

@@ -58,3 +58,13 @@ test('rejects bad sleep settings', () => {
   expect(() => validateConfig({ ...valid, panel: { ...valid.panel, sleepWhenEmpty: { enabledByDefault: false, idleMinutes: 5, checkEveryMinutes: 1 } } })).toThrow(/idleMinutes/);
   expect(() => validateConfig({ ...valid, panel: { ...valid.panel, sleepWhenEmpty: { enabledByDefault: false, idleMinutes: 60, checkEveryMinutes: 90 } } })).toThrow(/checkEveryMinutes/);
 });
+
+test('rejects bad mod packages', () => {
+  const mods = valid.mods;
+  expect(() => validateConfig({ ...valid, mods: { ...mods, packages: [{ namespace: 'a', name: 'b', version: '1.2' }] } })).toThrow(/version/);
+  expect(() => validateConfig({ ...valid, mods: { ...mods, packages: [{ namespace: 'bad name', name: 'b', version: '1.2.3' }] } })).toThrow(/namespace/);
+  expect(() => validateConfig({ ...valid, mods: { ...mods, packages: [{ namespace: 'a', name: 'b-c', version: '1.2.3' }] } })).toThrow(/name/);
+  expect(() => validateConfig({ ...valid, mods: { ...mods, packages: [{ namespace: 'a', name: 'b', version: '1.2.3' }, { namespace: 'a', name: 'b', version: '1.2.4' }] } })).toThrow(/once/);
+  expect(() => validateConfig({ ...valid, mods: { ...mods, profileName: '' } })).toThrow(/profileName/);
+  expect(() => validateConfig({ ...valid, mods: { enabled: false, profileName: '', packages: [] } })).not.toThrow();
+});

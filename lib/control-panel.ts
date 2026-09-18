@@ -11,6 +11,7 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { SleepWhenEmptyConfig } from './config';
+import { MODS_PARAMETER_NAME, PROFILE_CODE_PARAMETER_NAME } from './mods';
 import { GAME_PORT, QUERY_PORT } from './network';
 import { PLAYERS_PARAMETER_NAME } from './players-watcher';
 import { Schedule, START_SCHEDULE_NAME, STOP_SCHEDULE_NAME } from './schedule';
@@ -28,6 +29,8 @@ export interface ControlPanelProps {
   serverName: string;
   sleepWhenEmpty: SleepWhenEmptyConfig;
   playersParameter: ssm.IStringParameter;
+  modsParameter: ssm.IStringParameter;
+  profileCodeParameter: ssm.IStringParameter;
 }
 
 export class ControlPanel extends Construct {
@@ -85,6 +88,8 @@ export class ControlPanel extends Construct {
         TIMEZONE: props.timezone,
         SERVER_NAME: props.serverName,
         PLAYERS_PARAMETER: PLAYERS_PARAMETER_NAME,
+        MODS_PARAMETER: MODS_PARAMETER_NAME,
+        PROFILE_CODE_PARAMETER: PROFILE_CODE_PARAMETER_NAME,
       },
     });
     panel.addToRolePolicy(describeInstances);
@@ -98,6 +103,8 @@ export class ControlPanel extends Construct {
     panel.addToRolePolicy(parameterAccess);
     props.secret.grantRead(panel);
     props.playersParameter.grantRead(panel);
+    props.modsParameter.grantRead(panel);
+    props.profileCodeParameter.grantRead(panel);
     this.url = panel.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.NONE });
 
     const sleeper = new nodejs.NodejsFunction(this, 'Sleeper', {

@@ -27,6 +27,7 @@ export function composeDefinition(c: ServerConfig): Record<string, unknown> {
     environment.POST_SERVER_LISTENING_HOOK = discordHook('Valheim server is up');
     environment.PRE_SERVER_SHUTDOWN_HOOK = discordHook('Valheim server is shutting down');
   }
+  if (c.mods.enabled) environment.BEPINEX = 'true';
   return {
     services: {
       valheim: {

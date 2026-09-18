@@ -4,6 +4,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { ServerConfig } from './config';
+import { MODS_CONFIG_PATH } from './mods';
 import { Network } from './network';
 import { PLAYERS_PARAMETER_NAME } from './players-watcher';
 import { ServerSettings } from './server-settings';
@@ -36,6 +37,15 @@ export class ServerInstance extends Construct {
     });
     settings.secret.grantRead(this.role);
     settings.composeParameter.grantRead(this.role);
+    settings.modsParameter.grantRead(this.role);
+    for (const parameter of settings.modConfigParameters) parameter.grantRead(this.role);
+    this.role.addToPolicy(new iam.PolicyStatement({
+      actions: ['ssm:GetParametersByPath'],
+      resources: [
+        stack.formatArn({ service: 'ssm', resource: 'parameter', resourceName: MODS_CONFIG_PATH.slice(1) }),
+        stack.formatArn({ service: 'ssm', resource: 'parameter', resourceName: `${MODS_CONFIG_PATH.slice(1)}/*` }),
+      ],
+    }));
 
     this.playersParameter = new ssm.StringParameter(this, 'PlayersParameter', {
       parameterName: PLAYERS_PARAMETER_NAME,

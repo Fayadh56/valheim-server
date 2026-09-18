@@ -1,5 +1,6 @@
 import { Match } from 'aws-cdk-lib/assertions';
 import { config } from '../lib/config';
+import { packagesJson } from '../lib/mods';
 import { synth } from './helpers';
 
 describe('network', () => {
@@ -49,6 +50,12 @@ describe('server settings', () => {
     expect(values).toHaveLength(1);
     expect(values[0]).toContain('valheim-server:1.3.0');
     expect(values[0]).not.toMatch(/SERVER_PASS|2458|9001/);
+  });
+
+  test('publishes the server mod list and an empty profile code', () => {
+    template.hasResourceProperties('AWS::SSM::Parameter', { Name: '/valheim/mods/packages', Type: 'String', Value: packagesJson(config.mods) });
+    template.hasResourceProperties('AWS::SSM::Parameter', { Name: '/valheim/panel/profile-code', Type: 'String', Value: 'none' });
+    expect(JSON.parse(packagesJson(config.mods)).map((p: { name: string }) => p.name)).toContain('NetworkPerformanceSystem');
   });
 });
 
@@ -115,6 +122,12 @@ describe('server instance', () => {
       .flatMap((p) => p.Properties.PolicyDocument.Statement as Array<{ Action: string | string[]; Resource: unknown }>);
     const writers = statements.filter((s) => String(s.Action).includes('ssm:PutParameter') && JSON.stringify(s.Resource).includes(playersParameterId));
     expect(writers.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('instance role reads the mod parameters and the config path', () => {
+    const policies = Object.values(template.findResources('AWS::IAM::Policy')).map((p) => JSON.stringify(p.Properties.PolicyDocument));
+    expect(policies.some((p) => p.includes('ssm:GetParametersByPath') && p.includes('parameter/valheim/mods/config'))).toBe(true);
+    expect(policies.some((p) => p.includes('ServerPlayersParameter') && p.includes('ssm:PutParameter'))).toBe(true);
   });
 });
 
@@ -253,6 +266,7 @@ describe('control panel', () => {
         TIMEZONE: 'America/Toronto', SERVER_NAME: 'valheim-osrs-nerds',
         SLEEP_ENABLED_PARAMETER: '/valheim/panel/sleep-when-empty', EMPTY_SINCE_PARAMETER: '/valheim/panel/empty-since',
         SLEEP_IDLE_MINUTES: '60', PLAYERS_PARAMETER: '/valheim/panel/players',
+        MODS_PARAMETER: '/valheim/mods/packages', PROFILE_CODE_PARAMETER: '/valheim/panel/profile-code',
         SERVER_HOST: { 'Fn::GetAtt': [Match.stringLikeRegexp('^NetworkEip'), 'PublicIp'] },
       }) },
     }));
@@ -300,7 +314,7 @@ describe('control panel', () => {
     const off = synth({ panel: { ...config.panel, enabled: false } });
     off.resourceCountIs('AWS::Lambda::Function', 0);
     off.resourceCountIs('AWS::Lambda::Url', 0);
-    off.resourceCountIs('AWS::SSM::Parameter', 2);
+    off.resourceCountIs('AWS::SSM::Parameter', 4);
     off.resourceCountIs('AWS::Scheduler::Schedule', 2);
     expect(Object.keys(off.findOutputs('*'))).not.toContain('PanelUrl');
   });

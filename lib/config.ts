@@ -65,6 +65,17 @@ export function validateConfig(c: ServerConfig): ServerConfig {
   const sleep = c.panel.sleepWhenEmpty;
   if (!Number.isInteger(sleep.idleMinutes) || sleep.idleMinutes < 10) errors.push('panel.sleepWhenEmpty.idleMinutes must be an integer of at least 10');
   if (!Number.isInteger(sleep.checkEveryMinutes) || sleep.checkEveryMinutes < 1 || sleep.checkEveryMinutes > sleep.idleMinutes) errors.push('panel.sleepWhenEmpty.checkEveryMinutes must be an integer between 1 and idleMinutes');
+  const pkg = /^[A-Za-z0-9_]+$/;
+  const seen = new Set<string>();
+  for (const p of c.mods.packages) {
+    const full = `${p.namespace}-${p.name}`;
+    if (!pkg.test(p.namespace)) errors.push(`mods: namespace ${JSON.stringify(p.namespace)} may only contain letters, digits and _`);
+    if (!pkg.test(p.name)) errors.push(`mods: name ${JSON.stringify(p.name)} may only contain letters, digits and _`);
+    if (!/^\d+\.\d+\.\d+$/.test(p.version)) errors.push(`mods: ${full} version must be x.y.z`);
+    if (seen.has(full)) errors.push(`mods: ${full} is listed more than once`);
+    seen.add(full);
+  }
+  if (c.mods.enabled && !c.mods.profileName.trim()) errors.push('mods.profileName is required when mods are enabled');
   if (errors.length > 0) throw new Error(`Invalid config:\n- ${errors.join('\n- ')}`);
   return c;
 }
