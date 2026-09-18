@@ -47,14 +47,15 @@ function deps(aws: Aws, slept: number[] = []): Deps {
   };
 }
 
-function event(opts: { method?: string; path?: string; body?: string; cookie?: string; origin?: string; query?: Record<string, string> } = {}): LambdaFunctionURLEvent {
+function event(opts: { method?: string; path?: string; body?: string; cookie?: string; flash?: string; origin?: string; query?: Record<string, string> } = {}): LambdaFunctionURLEvent {
+  const cookies = [...(opts.cookie ? [`valheim_panel=${opts.cookie}`] : []), ...(opts.flash ? [`valheim_flash=${opts.flash}`] : [])];
   return {
     version: '2.0',
     routeKey: '$default',
     rawPath: opts.path ?? '/',
     rawQueryString: '',
     headers: { host: 'abc.lambda-url.us-east-1.on.aws', ...(opts.origin ? { origin: opts.origin } : {}) },
-    cookies: opts.cookie ? [`valheim_panel=${opts.cookie}`] : undefined,
+    cookies: cookies.length ? cookies : undefined,
     queryStringParameters: opts.query,
     requestContext: { http: { method: opts.method ?? 'GET', path: opts.path ?? '/', protocol: 'HTTP/1.1', sourceIp: '1.2.3.4', userAgent: 'jest' } } as LambdaFunctionURLEvent['requestContext'],
     body: opts.body,
@@ -65,6 +66,8 @@ function event(opts: { method?: string; path?: string; body?: string; cookie?: s
 const good = () => signCookie(password, now + 60_000);
 const sameOrigin = 'https://abc.lambda-url.us-east-1.on.aws';
 const header = (res: Result, name: string) => res.headers?.[name] as string | undefined;
+const flashCookie = (key: string) => `valheim_flash=${key}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=60`;
+const clearedFlash = 'valheim_flash=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0';
 
 test('unauthenticated GET shows the login page', async () => {
   const res = await createHandler(deps(fakeAws().aws))(event());
@@ -90,14 +93,22 @@ test('correct password sets a cookie and redirects home', async () => {
 });
 
 test('authenticated GET renders the hall with players, schedule and sleep setting', async () => {
-  const res = await createHandler(deps(fakeAws().aws))(event({ cookie: good(), query: { msg: 'starting' } }));
+  const res = await createHandler(deps(fakeAws().aws))(event({ cookie: good(), flash: 'schedule-saved' }));
   expect(res.statusCode).toBe(200);
   expect(res.body).toContain('The hall is open');
   expect(res.body).toContain('2 vikings online');
   expect(res.body).toContain('value="03:00"');
   expect(res.body).toMatch(/name="sleepWhenEmpty"[^>]*checked/);
-  expect(res.body).toContain('Lighting the fires. Give it about two minutes.');
+  expect(res.body).toContain('Night watch saved.');
+  expect(res.cookies).toEqual([clearedFlash]);
   expect(header(res, 'cache-control')).toBe('no-store');
+});
+
+test('a message shows once: no flash cookie means no message, and the old query is ignored', async () => {
+  const res = await createHandler(deps(fakeAws().aws))(event({ cookie: good(), query: { msg: 'stopping' } }));
+  expect(res.body).not.toContain('id="flash"');
+  expect(res.body).not.toContain('Dousing the fires.');
+  expect(res.cookies).toBeUndefined();
 });
 
 test('status json requires the cookie and mirrors the page data', async () => {
@@ -180,35 +191,40 @@ test('start when stopped starts the instance and redirects', async () => {
   const { aws, calls } = fakeAws({ describeInstance: async () => ({ state: 'stopped' }) });
   const res = await createHandler(deps(aws))(event({ method: 'POST', path: '/action', body: 'action=start', cookie: good(), origin: sameOrigin }));
   expect(calls).toEqual(['start:i-123']);
-  expect(header(res, 'location')).toBe('/?msg=starting');
+  expect(header(res, 'location')).toBe('/');
+  expect(res.cookies).toBeUndefined();
 });
 
 test('stop when already stopped is a no-op with a message', async () => {
   const { aws, calls } = fakeAws({ describeInstance: async () => ({ state: 'stopped' }) });
   const res = await createHandler(deps(aws))(event({ method: 'POST', path: '/action', body: 'action=stop', cookie: good(), origin: sameOrigin }));
   expect(calls).toEqual([]);
-  expect(header(res, 'location')).toBe('/?msg=already-stopped');
+  expect(header(res, 'location')).toBe('/');
+  expect(res.cookies).toEqual([flashCookie('already-stopped')]);
 });
 
 test('night watch save: nightly mode enables schedules, always mode disables them, sleep checkbox persists', async () => {
   const f = fakeAws();
   const h = createHandler(deps(f.aws));
   const nightly = await h(event({ method: 'POST', path: '/schedule', body: 'mode=nightly&stopAt=02:30&startAt=17:00&sleepWhenEmpty=on', cookie: good(), origin: sameOrigin }));
-  expect(header(nightly, 'location')).toBe('/?msg=schedule-saved');
+  expect(header(nightly, 'location')).toBe('/');
+  expect(nightly.cookies).toEqual([flashCookie('schedule-saved')]);
   expect(f.schedules()).toEqual({ enabled: true, stopCron: 'cron(30 2 * * ? *)', startCron: 'cron(0 17 * * ? *)' });
   expect(f.params['/p/enabled']).toBe('true');
   const always = await h(event({ method: 'POST', path: '/schedule', body: 'mode=always&stopAt=02:30&startAt=17:00', cookie: good(), origin: sameOrigin }));
-  expect(header(always, 'location')).toBe('/?msg=schedule-saved');
+  expect(header(always, 'location')).toBe('/');
   expect(f.schedules().enabled).toBe(false);
   expect(f.params['/p/enabled']).toBe('false');
   const bad = await h(event({ method: 'POST', path: '/schedule', body: 'mode=nightly&stopAt=9:00&startAt=17:00', cookie: good(), origin: sameOrigin }));
-  expect(header(bad, 'location')).toBe('/?msg=bad-time');
+  expect(header(bad, 'location')).toBe('/');
+  expect(bad.cookies).toEqual([flashCookie('bad-time')]);
 });
 
 test('an AWS failure on an action redirects with the error message', async () => {
   const { aws } = fakeAws({ startInstance: async () => { throw new Error('boom'); }, describeInstance: async () => ({ state: 'stopped' }) });
   const res = await createHandler(deps(aws))(event({ method: 'POST', path: '/action', body: 'action=start', cookie: good(), origin: sameOrigin }));
-  expect(header(res, 'location')).toBe('/?msg=error');
+  expect(header(res, 'location')).toBe('/');
+  expect(res.cookies).toEqual([flashCookie('error')]);
 });
 
 test('logout clears the cookie', async () => {

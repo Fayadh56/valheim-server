@@ -31,8 +31,6 @@ export interface PanelView {
 }
 
 export const MESSAGES: Record<string, string> = {
-  starting: 'Lighting the fires. Give it about two minutes.',
-  stopping: 'Dousing the fires. The world saves first.',
   'already-running': 'The hall is already open.',
   'already-stopped': 'The hall is already dark.',
   'schedule-saved': 'Night watch saved.',
@@ -191,7 +189,7 @@ export function renderPanel(v: PanelView): string {
       <p id="sub" class="sub">${esc(playersLine(v))}</p>
       <p id="names" class="names"${v.playerNames && v.playerNames.length ? '' : ' hidden'}>${esc((v.playerNames ?? []).join(', '))}</p>
       <p id="notice" class="msg" hidden></p>
-      ${v.message ? `<p class="msg">${esc(v.message)}</p>` : ''}
+      ${v.message ? `<p id="flash" class="msg">${esc(v.message)}</p>` : ''}
       <form id="actionForm" method="post" action="/action">
         <input type="hidden" name="action" id="actionInput" value="${running ? 'stop' : 'start'}">
         <button id="action" type="submit" value="${running ? 'stop' : 'start'}" class="${actionClass}" data-players="${v.players ?? 0}"${running || stopped ? '' : ' disabled'}>${actionLabel}</button>
@@ -278,6 +276,8 @@ function clientScript(v: PanelView): string {
     }).then(function () { setTimeout(tick, 15000); });
   }
   setTimeout(tick, 15000);
+  var flash = document.getElementById('flash');
+  if (flash) setTimeout(function () { flash.hidden = true; }, 8000);
   var dlg = document.getElementById('confirm');
   function copyFor(action, players) {
     if (action === 'start') return { title: 'Light the fires?', body: 'The hall takes about two minutes to warm up.', yes: 'Light them', cls: 'start' };

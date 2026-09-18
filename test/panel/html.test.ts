@@ -111,9 +111,12 @@ test('night watch form reflects schedule and sleep settings', () => {
   expect(on).not.toMatch(/name="sleepWhenEmpty"[^>]*checked/);
 });
 
-test('messages render from the fixed map and escape html', () => {
-  expect(renderPanel({ ...base, message: MESSAGES['schedule-saved'] })).toContain('Night watch saved.');
-  expect(renderPanel(base)).not.toMatch(/<p class="msg">/);
+test('messages render once from the fixed map, fade on the client, and escape html', () => {
+  const flashed = renderPanel({ ...base, message: MESSAGES['schedule-saved'] });
+  expect(flashed).toMatch(/<p id="flash" class="msg">Night watch saved\.<\/p>/);
+  expect(flashed).toMatch(/getElementById\('flash'\)[\s\S]*8000/);
+  expect(renderPanel(base)).not.toContain('id="flash"');
+  expect(Object.keys(MESSAGES).sort()).toEqual(['already-running', 'already-stopped', 'bad-time', 'error', 'schedule-saved']);
   const html = renderPanel({ ...base, serverName: '<b>x</b>' });
   expect(html).not.toContain('<b>x</b>');
   expect(html).toContain('&lt;b&gt;x&lt;/b&gt;');

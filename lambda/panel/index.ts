@@ -34,6 +34,8 @@ export interface Deps {
 
 const PASSWORD_CACHE_MS = 5 * 60 * 1000;
 const WRONG_PASSWORD_DELAY_MS = 1000;
+const FLASH_COOKIE = 'valheim_flash';
+const FLASH_MAX_AGE_SECONDS = 60;
 const NO_STORE = 'no-store';
 const DAY = 'public, max-age=86400';
 const PINE = '#14201B';
@@ -84,7 +86,10 @@ export function createHandler(deps: Deps) {
     const authed = verifyCookie(secret, cookieValue(event), deps.now());
 
     if (method === 'GET' && path === '/') {
-      return authed ? html(renderPanel(await view(event.queryStringParameters?.msg))) : html(renderLogin());
+      if (!authed) return html(renderLogin());
+      // The outcome of the last POST rides in a one-shot cookie: shown on this load, cleared in the same response
+      const outcome = cookieValue(event, FLASH_COOKIE);
+      return html(renderPanel(await view(outcome)), outcome === undefined ? undefined : [`${FLASH_COOKIE}=; ${COOKIE_ATTRIBUTES}; Max-Age=0`]);
     }
     if (method === 'GET' && path === '/status.json') {
       if (!authed) return json(401, { error: 'login' });
@@ -146,23 +151,23 @@ export function createHandler(deps: Deps) {
     try {
       const { state } = await aws.describeInstance(env.instanceId);
       if (name === 'start') {
-        if (state !== 'stopped') return redirect('/?msg=already-running');
+        if (state !== 'stopped') return flash('already-running');
         await aws.startInstance(env.instanceId);
-        return redirect('/?msg=starting');
+        return redirect('/');
       }
-      if (state !== 'running') return redirect('/?msg=already-stopped');
+      if (state !== 'running') return flash('already-stopped');
       await aws.stopInstance(env.instanceId);
-      return redirect('/?msg=stopping');
+      return redirect('/');
     } catch (error) {
       console.error('action failed', error);
-      return redirect('/?msg=error');
+      return flash('error');
     }
   }
 
   async function saveNightWatch(fields: URLSearchParams): Promise<Result> {
     const stopAt = fields.get('stopAt') ?? '';
     const startAt = fields.get('startAt') ?? '';
-    if (!validateTime(stopAt) || !validateTime(startAt)) return redirect('/?msg=bad-time');
+    if (!validateTime(stopAt) || !validateTime(startAt)) return flash('bad-time');
     try {
       await aws.updateSchedules(env.stopScheduleName, env.startScheduleName, {
         enabled: fields.get('mode') === 'nightly',
@@ -170,10 +175,10 @@ export function createHandler(deps: Deps) {
         startCron: timeToCron(startAt),
       });
       await aws.putParameter(env.sleepEnabledParameter, fields.get('sleepWhenEmpty') === 'on' ? 'true' : 'false');
-      return redirect('/?msg=schedule-saved');
+      return flash('schedule-saved');
     } catch (error) {
       console.error('night watch update failed', error);
-      return redirect('/?msg=error');
+      return flash('error');
     }
   }
 
@@ -199,8 +204,8 @@ export function createHandler(deps: Deps) {
 
 const COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Lax; Path=/';
 
-function cookieValue(event: LambdaFunctionURLEvent): string | undefined {
-  const prefix = `${COOKIE_NAME}=`;
+function cookieValue(event: LambdaFunctionURLEvent, name = COOKIE_NAME): string | undefined {
+  const prefix = `${name}=`;
   return event.cookies?.find((c) => c.startsWith(prefix))?.slice(prefix.length);
 }
 
@@ -225,8 +230,8 @@ function toState(state: string): InstanceState {
   return (['running', 'stopped', 'pending', 'stopping'] as const).find((s) => s === state) ?? 'unknown';
 }
 
-function html(body: string): Result {
-  return { statusCode: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': NO_STORE }, body };
+function html(body: string, cookies?: string[]): Result {
+  return { statusCode: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': NO_STORE }, body, ...(cookies ? { cookies } : {}) };
 }
 
 function json(statusCode: number, body: unknown): Result {
@@ -239,4 +244,8 @@ function text(statusCode: number, body: string): Result {
 
 function redirect(location: string, cookies?: string[]): Result {
   return { statusCode: 303, headers: { location, 'cache-control': NO_STORE }, body: '', ...(cookies ? { cookies } : {}) };
+}
+
+function flash(outcome: keyof typeof MESSAGES): Result {
+  return redirect('/', [`${FLASH_COOKIE}=${outcome}; ${COOKIE_ATTRIBUTES}; Max-Age=${FLASH_MAX_AGE_SECONDS}`]);
 }
