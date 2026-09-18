@@ -9,7 +9,8 @@
     "deploy": "cdk deploy --profile ${AWS_PROFILE:-valheim} --require-approval never",
     "bootstrap": "cdk bootstrap aws://623096509435/us-east-1 --profile ${AWS_PROFILE:-valheim}",
     "server": "bash scripts/server.sh",
-    "install-watcher": "tsx scripts/install-watcher.ts",
+    "install-scripts": "tsx scripts/install-scripts.ts",
+    "share-profile": "tsx scripts/share-profile.ts",
     "cdk": "cdk"
   },
   "devDependencies": {
@@ -24,6 +25,7 @@
     "@types/node": "^24.10.1",
     "aws-cdk": "2.1142.0",
     "esbuild": "^0.28.2",
+    "fflate": "^0.8.3",
     "jest": "^30",
     "tsx": "^4.23.0",
     "typescript": "~7.0.2"

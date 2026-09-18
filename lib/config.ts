@@ -15,6 +15,20 @@ export interface PanelConfig {
   sleepWhenEmpty: SleepWhenEmptyConfig;
 }
 
+export interface ModPackage {
+  namespace: string;
+  name: string;
+  version: string;
+  // The image installs BepInEx itself, so the pack only goes into the players' profile
+  clientOnly?: boolean;
+}
+
+export interface ModsConfig {
+  enabled: boolean;
+  profileName: string;
+  packages: ModPackage[];
+}
+
 export interface ServerConfig {
   account: string;
   region: string;
@@ -31,6 +45,7 @@ export interface ServerConfig {
   schedule: ScheduleConfig;
   discordNotifications: boolean;
   panel: PanelConfig;
+  mods: ModsConfig;
 }
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -70,4 +85,18 @@ export const config: ServerConfig = validateConfig({
   schedule: { enabled: false, stopAt: '03:00', startAt: '16:00' },
   discordNotifications: true,
   panel: { enabled: true, sleepWhenEmpty: { enabledByDefault: false, idleMinutes: 60, checkEveryMinutes: 10 } },
+  mods: {
+    enabled: true,
+    profileName: 'OsrsNerds',
+    packages: [
+      { namespace: 'denikson', name: 'BepInExPack_Valheim', version: '5.4.2350', clientOnly: true },
+      { namespace: 'ValheimModding', name: 'Jotunn', version: '2.30.0' },
+      { namespace: 'MidnightMods', name: 'NetworkPerformanceSystem', version: '1.6.0' },
+      { namespace: 'MidnightMods', name: 'ValheimCommunityPatch', version: '0.28.0' },
+      { namespace: 'momos3939', name: 'ForsakenPowerOverhaul', version: '2.2.0' },
+      { namespace: 'xtavim', name: 'BetterConsumables', version: '1.1.0' },
+      { namespace: 'Goldenrevolver', name: 'Quick_Stack_Store_Sort_Trash_Restock', version: '1.4.15' },
+      { namespace: 'sighsorry', name: 'InventorySlots', version: '1.5.4' },
+    ],
+  },
 });
