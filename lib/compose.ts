@@ -9,7 +9,7 @@ export function composeDefinition(c: ServerConfig): Record<string, unknown> {
   const environment: Record<string, string> = {
     SERVER_NAME: c.serverName,
     WORLD_NAME: c.worldName,
-    SERVER_PUBLIC: 'false',
+    SERVER_PUBLIC: 'true',
     SERVER_ARGS: `-saveinterval ${c.saveIntervalSeconds}`,
     ADMINLIST_IDS: c.adminSteamIds.join(' '),
     PUID: '1000',

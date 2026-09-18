@@ -34,12 +34,12 @@ test('never inlines the password', () => {
   expect(renderCompose(config)).not.toMatch(/SERVER_PASS/);
 });
 
-test('sets the private server environment', () => {
+test('sets the server environment', () => {
   const env = service().environment;
   expect(env).toMatchObject({
     SERVER_NAME: 'valheim-osrs-nerds',
     WORLD_NAME: 'OsrsNerds',
-    SERVER_PUBLIC: 'false',
+    SERVER_PUBLIC: 'true',
     SERVER_ARGS: '-saveinterval 900',
     ADMINLIST_IDS: '76561198097010635',
     PUID: '1000',
@@ -66,4 +66,8 @@ test('adds discord hooks only when enabled, with compose-escaped variable', () =
   expect(env.POST_SERVER_LISTENING_HOOK).toContain('$$DISCORD_WEBHOOK');
   expect(env.PRE_SERVER_SHUTDOWN_HOOK).toContain('$$DISCORD_WEBHOOK');
   expect(env.POST_SERVER_LISTENING_HOOK).not.toMatch(/https?:/);
+});
+
+test('lists the server publicly so the panel can query player count', () => {
+  expect(service().environment.SERVER_PUBLIC).toBe('true');
 });

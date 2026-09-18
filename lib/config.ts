@@ -4,6 +4,10 @@ export interface ScheduleConfig {
   startAt: string;
 }
 
+export interface PanelConfig {
+  enabled: boolean;
+}
+
 export interface ServerConfig {
   account: string;
   region: string;
@@ -19,6 +23,7 @@ export interface ServerConfig {
   timezone: string;
   schedule: ScheduleConfig;
   discordNotifications: boolean;
+  panel: PanelConfig;
 }
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -54,4 +59,5 @@ export const config: ServerConfig = validateConfig({
   timezone: 'America/Toronto',
   schedule: { enabled: false, stopAt: '03:00', startAt: '16:00' },
   discordNotifications: false,
+  panel: { enabled: true },
 });

@@ -668,7 +668,7 @@ systemctl enable --now valheim.service
     environment:
       SERVER_NAME: valheim-osrs-nerds
       WORLD_NAME: OsrsNerds
-      SERVER_PUBLIC: "false"
+      SERVER_PUBLIC: "true"
       SERVER_ARGS: -saveinterval 900
       ADMINLIST_IDS: "76561198097010635"
       PUID: "1000"
