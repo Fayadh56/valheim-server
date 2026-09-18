@@ -56,6 +56,10 @@ test('running page: lit hall, status copy, stop button, no light styles', () => 
   expect(html).toContain('color-scheme: dark');
   expect(html).not.toMatch(/prefers-color-scheme|theme-toggle|http-equiv="refresh"/);
   expect(html).toContain('/status.json');
+  expect(html).toContain('id="notice"');
+  expect(html).toContain('aria-live="polite"');
+  expect(html).toContain('aria-label="Sleep time"');
+  expect(html).toContain("Couldn't reach the server status");
 });
 
 test('stopped page: dark hall, start button', () => {
@@ -75,6 +79,13 @@ test('pending and stopping disable the action', () => {
   }
 });
 
+test('unknown state says so and disables the action', () => {
+  const html = renderPanel({ ...base, state: 'unknown', sinceIso: undefined, players: undefined });
+  expect(html).toContain('Checking the hall');
+  expect(html).toContain('Trying again shortly.');
+  expect(html).toMatch(/<button[^>]*id="action"[^>]*disabled/);
+});
+
 test('getting in section and copy buttons', () => {
   const html = renderPanel(base);
   expect(html).toContain('100.29.76.244:2456');
@@ -90,6 +101,8 @@ test('night watch form reflects schedule and sleep settings', () => {
   expect(off).not.toMatch(/name="mode" value="nightly"[^>]*checked/);
   expect(off).toContain('value="03:00"');
   expect(off).toContain('value="16:00"');
+  expect(off).toContain('name="stopAt"');
+  expect(off).toContain('name="startAt"');
   expect(off).toMatch(/name="sleepWhenEmpty"[^>]*checked/);
   expect(off).toContain("Sleep when nobody's online for an hour");
   const on = renderPanel({ ...base, schedule: { ...base.schedule, enabled: true }, sleepWhenEmpty: { ...base.sleepWhenEmpty, enabled: false } });
@@ -99,7 +112,7 @@ test('night watch form reflects schedule and sleep settings', () => {
 
 test('messages render from the fixed map and escape html', () => {
   expect(renderPanel({ ...base, message: MESSAGES['schedule-saved'] })).toContain('Night watch saved.');
-  expect(renderPanel(base)).not.toContain('class="msg"');
+  expect(renderPanel(base)).not.toMatch(/<p class="msg">/);
   const html = renderPanel({ ...base, serverName: '<b>x</b>' });
   expect(html).not.toContain('<b>x</b>');
   expect(html).toContain('&lt;b&gt;x&lt;/b&gt;');
@@ -111,6 +124,8 @@ test('home screen tags and manifest links on every page', () => {
     expect(html).toContain('<link rel="apple-touch-icon" href="/icon-180.png">');
     expect(html).toContain('<meta name="theme-color" content="#14201B">');
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">');
+    expect(html).toContain('<meta name="apple-mobile-web-app-capable" content="yes">');
+    expect(html).toContain('<meta name="mobile-web-app-capable" content="yes">');
   }
 });
 

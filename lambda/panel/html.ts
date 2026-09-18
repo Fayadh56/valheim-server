@@ -54,7 +54,7 @@ const QUIET_COPY: Record<Exclude<InstanceState, 'running'>, string> = {
   unknown: 'Trying again shortly.',
 };
 
-const C = { pine: '#14201B', birch: '#E9DFC7', bronze: '#B8863B', mist: '#8FA39A', moss: '#5F8F5A', ember: '#C2452D', wall: '#1C2A24' };
+const C = { pine: '#14201B', birch: '#E9DFC7', bronze: '#B8863B', mist: '#8FA39A', moss: '#6A9C65', ember: '#A63A26', wall: '#1C2A24' };
 
 export function formatTime(iso: string, timeZone: string, now: Date): string {
   const date = new Date(iso);
@@ -115,8 +115,8 @@ const STYLE = `
   button.start { background: ${C.moss}; border-color: ${C.moss}; color: ${C.pine}; }
   button.stop { background: ${C.ember}; border-color: ${C.ember}; }
   button:disabled { opacity: .5; cursor: default; }
-  button.copy { min-height: 36px; padding: .3rem .7rem; font-size: .9rem; }
-  button.quiet { border-color: transparent; color: ${C.mist}; min-height: 36px; padding: .3rem .6rem; }
+  button.copy { padding: .3rem .7rem; font-size: .9rem; }
+  button.quiet { border-color: transparent; color: ${C.mist}; padding: .3rem .6rem; }
   input[type=time] { font: inherit; background: transparent; color: ${C.birch}; border: 1px solid ${C.mist}; border-radius: 6px; padding: .3rem .4rem; }
   input[type=radio], input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: ${C.bronze}; }
   .opt { display: flex; align-items: center; gap: .6rem; margin: .6rem 0; flex-wrap: wrap; }
@@ -180,8 +180,9 @@ export function renderPanel(v: PanelView): string {
         <form method="post" action="/logout"><button class="quiet" type="submit">Log out</button></form>
       </header>
       ${longhouse(running, 'hall', running ? 'Longhouse, lit' : 'Longhouse, dark')}
-      <h1 id="status" class="status">${STATUS_COPY[v.state]}</h1>
+      <h1 id="status" class="status" aria-live="polite">${STATUS_COPY[v.state]}</h1>
       <p id="sub" class="sub">${esc(playersLine(v))}</p>
+      <p id="notice" class="msg" hidden></p>
       ${v.message ? `<p class="msg">${esc(v.message)}</p>` : ''}
       <form id="actionForm" method="post" action="/action">
         <button id="action" type="submit" name="action" value="${running ? 'stop' : 'start'}" class="${actionClass}" data-players="${v.players ?? 0}"${running || stopped ? '' : ' disabled'}>${actionLabel}</button>
@@ -194,7 +195,7 @@ export function renderPanel(v: PanelView): string {
       <h2>Night watch</h2>
       <form method="post" action="/schedule">
         <div class="opt"><input type="radio" id="modeAlways" name="mode" value="always"${nightly ? '' : ' checked'}><label for="modeAlways">Always on</label></div>
-        <div class="opt"><input type="radio" id="modeNightly" name="mode" value="nightly"${nightly ? ' checked' : ''}><label for="modeNightly">Sleeps at</label> <input type="time" name="stopAt" value="${esc(v.schedule.stopAt)}" required> <span>and wakes at</span> <input type="time" name="startAt" value="${esc(v.schedule.startAt)}" required></div>
+        <div class="opt"><input type="radio" id="modeNightly" name="mode" value="nightly"${nightly ? ' checked' : ''}><label for="modeNightly">Sleeps at</label> <input type="time" name="stopAt" aria-label="Sleep time" value="${esc(v.schedule.stopAt)}" required> <span>and wakes at</span> <input type="time" name="startAt" aria-label="Wake time" value="${esc(v.schedule.startAt)}" required></div>
         <div class="opt"><input type="checkbox" id="sleepWhenEmpty" name="sleepWhenEmpty" value="on"${v.sleepWhenEmpty.enabled ? ' checked' : ''}><label for="sleepWhenEmpty">Sleep when nobody's online for ${esc(sleepAfterText(v.sleepWhenEmpty.idleMinutes))}</label></div>
         <p id="idle" class="countdown">${esc(idleLine(v))}</p>
         <button type="submit">Save</button>
@@ -209,8 +210,8 @@ export function renderPanel(v: PanelView): string {
 function clientScript(v: PanelView): string {
   return `(function () {
   var TZ = ${JSON.stringify(v.timezone)}, COPY = ${JSON.stringify(STATUS_COPY)}, QUIET = ${JSON.stringify(QUIET_COPY)};
-  function fmt(iso) {
-    var d = new Date(iso), n = new Date();
+  function fmt(iso, nowIso) {
+    var d = new Date(iso), n = new Date(nowIso);
     var t = d.toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(/\u202f/g, ' ');
     var same = d.toLocaleDateString('en-US', { timeZone: TZ }) === n.toLocaleDateString('en-US', { timeZone: TZ });
     return same ? t : d.toLocaleDateString('en-US', { timeZone: TZ, month: 'short', day: 'numeric' }) + ', ' + t;
@@ -218,12 +219,14 @@ function clientScript(v: PanelView): string {
   function sub(s) {
     if (s.state !== 'running') return QUIET[s.state] || '';
     var c = s.players === null ? 'Counting heads' : s.players === 0 ? 'Nobody online yet' : s.players === 1 ? '1 viking online' : s.players + ' vikings online';
-    return s.since ? c + ', since ' + fmt(s.since) : c;
+    return s.since ? c + ', since ' + fmt(s.since, s.updatedAt) : c;
   }
   function idle(s) {
     var w = s.sleepWhenEmpty;
     if (s.state !== 'running' || s.players !== 0 || !w.enabled || !w.emptySince) return '';
-    var m = Math.max(0, Math.floor((Date.now() - new Date(w.emptySince).getTime()) / 60000));
+    var start = new Date(w.emptySince).getTime();
+    if (isNaN(start)) return '';
+    var m = Math.max(0, Math.floor((new Date(s.updatedAt).getTime() - start) / 60000));
     var unit = m === 1 ? ' minute' : ' minutes', r = w.idleMinutes - m;
     return r > 0 ? 'Nobody online for ' + m + unit + ', sleeps in ' + r + '.' : 'Nobody online for ' + m + unit + ', sleeping at the next check.';
   }
@@ -232,6 +235,7 @@ function clientScript(v: PanelView): string {
     document.getElementById('status').textContent = COPY[s.state] || COPY.unknown;
     document.getElementById('sub').textContent = sub(s);
     document.getElementById('hall').classList.toggle('lit', running);
+    document.getElementById('hall').setAttribute('aria-label', running ? 'Longhouse, lit' : 'Longhouse, dark');
     var b = document.getElementById('action');
     b.value = running ? 'stop' : 'start';
     b.className = running ? 'stop' : stopped ? 'start' : '';
@@ -239,13 +243,18 @@ function clientScript(v: PanelView): string {
     b.textContent = running ? 'Stop the server' : stopped ? 'Start the server' : 'Hold on';
     b.dataset.players = s.players === null ? '0' : String(s.players);
     document.getElementById('idle').textContent = idle(s);
-    document.getElementById('updated').textContent = 'Updated ' + fmt(s.updatedAt);
+    document.getElementById('updated').textContent = 'Updated ' + fmt(s.updatedAt, s.updatedAt);
+    document.getElementById('notice').hidden = true;
   }
   function tick() {
     fetch('/status.json', { cache: 'no-store' }).then(function (r) {
       if (r.status === 401) { location.reload(); return null; }
       return r.json();
-    }).then(function (s) { if (s) apply(s); }).catch(function () {}).then(function () { setTimeout(tick, 15000); });
+    }).then(function (s) { if (s) apply(s); }).catch(function () {
+      var n = document.getElementById('notice');
+      n.textContent = "Couldn't reach the server status. It usually comes back on its own; try again in a minute.";
+      n.hidden = false;
+    }).then(function () { setTimeout(tick, 15000); });
   }
   setTimeout(tick, 15000);
   document.getElementById('actionForm').addEventListener('submit', function (e) {
@@ -254,9 +263,11 @@ function clientScript(v: PanelView): string {
   });
   Array.prototype.forEach.call(document.querySelectorAll('button.copy'), function (b) {
     b.addEventListener('click', function () {
+      if (b.dataset.busy) return;
+      b.dataset.busy = '1';
       navigator.clipboard.writeText(document.getElementById(b.dataset.for).textContent).then(function () {
-        var t = b.textContent; b.textContent = 'Copied'; setTimeout(function () { b.textContent = t; }, 1500);
-      });
+        var t = b.textContent; b.textContent = 'Copied'; setTimeout(function () { b.textContent = t; delete b.dataset.busy; }, 1500);
+      }).catch(function () { delete b.dataset.busy; });
     });
   });
 })();`;
