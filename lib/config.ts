@@ -40,7 +40,7 @@ export function validateConfig(c: ServerConfig): ServerConfig {
 }
 
 export const config: ServerConfig = validateConfig({
-  account: '309448544182',
+  account: '623096509435',
   region: 'us-east-1',
   az: 'us-east-1a',
   instanceType: 'm7a.large',

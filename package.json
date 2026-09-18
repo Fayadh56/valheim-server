@@ -7,7 +7,7 @@
     "synth": "cdk synth",
     "diff": "cdk diff --profile ${AWS_PROFILE:-valheim}",
     "deploy": "cdk deploy --profile ${AWS_PROFILE:-valheim} --require-approval never",
-    "bootstrap": "cdk bootstrap aws://309448544182/us-east-1 --profile ${AWS_PROFILE:-valheim}",
+    "bootstrap": "cdk bootstrap aws://623096509435/us-east-1 --profile ${AWS_PROFILE:-valheim}",
     "server": "bash scripts/server.sh",
     "cdk": "cdk"
   },

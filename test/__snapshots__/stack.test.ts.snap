@@ -629,7 +629,7 @@ systemctl enable --now valheim.service
                     {
                       "Ref": "AWS::Partition",
                     },
-                    ":ssm:us-east-1:309448544182:parameter/",
+                    ":ssm:us-east-1:623096509435:parameter/",
                     {
                       "Ref": "SettingsComposeParameterFE954861",
                     },
