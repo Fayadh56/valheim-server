@@ -8,6 +8,7 @@ const ago = (minutes: number) => new Date(now.getTime() - minutes * 60_000).toIS
 function fake(opts: { state?: string; players?: number | null; enabled?: string; emptySince?: string; webhook?: string } = {}) {
   const params: Record<string, string> = { '/p/enabled': opts.enabled ?? 'true', '/p/since': opts.emptySince ?? NO_TIMER };
   const calls: string[] = [];
+  let queries = 0;
   const aws = {
     describeInstance: async () => ({ state: opts.state ?? 'running' }),
     startInstance: async () => { calls.push('start'); },
@@ -23,10 +24,10 @@ function fake(opts: { state?: string; players?: number | null; enabled?: string;
   const deps: SleeperDeps = {
     aws,
     env: { instanceId: 'i-1', serverHost: 'h', queryPort: 2457, secretArn: 'arn:s', sleepEnabledParameter: '/p/enabled', emptySinceParameter: '/p/since', idleMinutes: 60 },
-    queryPlayers: async () => (opts.players === undefined ? { players: 0 } : opts.players === null ? null : { players: opts.players }),
+    queryPlayers: async () => { queries += 1; return (opts.players === undefined ? { players: 0 } : opts.players === null ? null : { players: opts.players }); },
     now: () => now.getTime(),
   };
-  return { run: createSleeper(deps), calls, params };
+  return { run: createSleeper(deps), calls, params, queries: () => queries };
 }
 
 test('marks the timer when the server is empty', async () => {
@@ -34,6 +35,7 @@ test('marks the timer when the server is empty', async () => {
   await expect(f.run()).resolves.toEqual({ action: 'mark', emptySince: now.toISOString() });
   expect(f.params['/p/since']).toBe(now.toISOString());
   expect(f.calls.filter((c) => c.startsWith('stop'))).toEqual([]);
+  expect(f.queries()).toBe(1);
 });
 
 test('clears the timer when players are online', async () => {
@@ -59,12 +61,14 @@ test('skips the Discord post when no webhook is stored', async () => {
   await f.run();
   expect(f.calls.some((c) => c.startsWith('discord'))).toBe(false);
   expect(f.calls[0]).toBe('stop:i-1');
+  expect(f.params['/p/since']).toBe(NO_TIMER);
 });
 
 test('does not query players when the server is not running', async () => {
   const f = fake({ state: 'stopped', emptySince: ago(5) });
   await expect(f.run()).resolves.toEqual({ action: 'clear' });
   expect(f.calls).toEqual([`put:/p/since=${NO_TIMER}`]);
+  expect(f.queries()).toBe(0);
 });
 
 test('readSleeperEnv requires every variable', () => {

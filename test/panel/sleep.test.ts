@@ -45,4 +45,5 @@ test('minutesIdle', () => {
   expect(minutesIdle(null, now)).toBeNull();
   expect(minutesIdle(ago(23), now)).toBe(23);
   expect(minutesIdle(ago(0.5), now)).toBe(0);
+  expect(minutesIdle('not a date', now)).toBeNull();
 });
