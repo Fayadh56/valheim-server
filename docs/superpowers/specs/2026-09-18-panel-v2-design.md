@@ -18,7 +18,7 @@ phone like an app, and stop paying for an empty server.
 | Hero | Inline SVG longhouse. Windows and door glow Bronze when running, dark when stopped; a soft radial glow behind the roof when running. Transition 600 ms on state change, none under `prefers-reduced-motion`. |
 | Status copy | running "The hall is open"; stopped "The hall is dark"; pending "Lighting the fires"; stopping "Dousing the fires"; unknown "Checking the hall". Sub-line: `N vikings online, since <time>` (1 viking, 0 "Nobody online yet", unknown count "Counting heads"). |
 | Live refresh | `GET /status.json` every 15 s from the page; DOM updated in place; form inputs never touched. No page reload, no meta refresh. |
-| Sleep when empty | Every 10 minutes a second Lambda checks the server. If it has had zero players for 60 minutes and the feature is on, it stops the instance and posts one Discord line. Setting and idle timer live in two SSM parameters. Default on. |
+| Sleep when empty | Every 10 minutes a second Lambda checks the server. If it has had zero players for 60 minutes and the feature is on, it stops the instance and posts one Discord line. Setting and idle timer live in two SSM parameters. Off by default; friends turn it on from the page. |
 | Home screen | `GET /manifest.webmanifest`, `GET /icon.svg`, `GET /icon-180.png` (pre-rendered, base64 constant), plus the head tags Safari and Chrome need. Public routes. |
 | Not in scope | World map link, Discord commands, player names, backups UI, per-user accounts. |
 
@@ -102,13 +102,13 @@ Head tags on every HTML page: `<meta name="theme-color" content="#14201B">`,
   `StopInstances`, writes `none`, and posts to Discord:
   "Nobody was online for an hour, so the hall is going dark. Start it from the panel when
   you want to play." Logs the decision as one JSON line.
-- Parameters (CDK `ssm.StringParameter`): `/valheim/panel/sleep-when-empty` initial `true`,
+- Parameters (CDK `ssm.StringParameter`): `/valheim/panel/sleep-when-empty` initial `false` (from `config.panel.sleepWhenEmpty.enabledByDefault`),
   `/valheim/panel/empty-since` initial `none` (SSM rejects empty values). Runtime writes survive
   deploys unless the initial values in config change. No retain policy; they are cheap to recreate.
 - IAM (sleeper role): `ec2:DescribeInstances` on `*`, `ec2:StopInstances` on the instance ARN,
   `ssm:GetParameter`/`PutParameter` on the two parameter ARNs, secret read.
 - IAM (panel role adds): `ssm:GetParameter`/`PutParameter` on the two parameter ARNs.
-- Config: `panel: { enabled: true, sleepWhenEmpty: { idleMinutes: 60, checkEveryMinutes: 10 } }`.
+- Config: `panel: { enabled: true, sleepWhenEmpty: { enabledByDefault: false, idleMinutes: 60, checkEveryMinutes: 10 } }`.
 
 ## Modules
 
