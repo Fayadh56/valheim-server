@@ -7,7 +7,7 @@ describe('network', () => {
   test('one public subnet, no NAT, no default-SG lambda', () => {
     template.resourceCountIs('AWS::EC2::Subnet', 1);
     template.resourceCountIs('AWS::EC2::NatGateway', 0);
-    template.resourceCountIs('AWS::Lambda::Function', 0);
+    template.resourceCountIs('Custom::VpcRestrictDefaultSG', 0);
     template.hasResourceProperties('AWS::EC2::Subnet', { AvailabilityZone: 'us-east-1a', MapPublicIpOnLaunch: true });
   });
 
@@ -172,7 +172,7 @@ describe('schedule', () => {
       expect(statement.Resource).not.toBe('*');
       expect(JSON.stringify(statement.Resource)).toMatch(/:ec2:us-east-1:623096509435:instance\//);
     }
-    expect(json).not.toContain('"Resource":"*"');
+    expect(json.match(/"Resource":"\*"/g) ?? []).toHaveLength(1);
   });
 });
 
@@ -202,11 +202,54 @@ describe('cost guard and outputs', () => {
     const outputs = Object.keys(template.findOutputs('*'));
     expect(outputs.sort()).toEqual([
       'ComposeParameterName', 'ConnectString', 'DataVolumeId', 'InstanceId',
-      'PasswordCommand', 'PublicIp', 'SecretArn', 'ShellCommand', 'SteamFavoritesString',
+      'PanelUrl', 'PasswordCommand', 'PublicIp', 'SecretArn', 'ShellCommand', 'SteamFavoritesString',
     ]);
   });
 
   test('template snapshot', () => {
     expect(template.toJSON()).toMatchSnapshot();
+  });
+});
+
+describe('control panel', () => {
+  const template = synth();
+  const json = JSON.stringify(template.toJSON());
+
+  test('one arm64 node 22 lambda behind an open function url', () => {
+    template.resourceCountIs('AWS::Lambda::Function', 1);
+    template.hasResourceProperties('AWS::Lambda::Function', Match.objectLike({
+      Runtime: 'nodejs22.x',
+      Architectures: ['arm64'],
+      MemorySize: 256,
+      Timeout: 10,
+      Environment: { Variables: Match.objectLike({ STOP_SCHEDULE_NAME: 'valheim-stop', START_SCHEDULE_NAME: 'valheim-start', GAME_PORT: '2456', QUERY_PORT: '2457', TIMEZONE: 'America/Toronto', SERVER_NAME: 'valheim-osrs-nerds' }) },
+    }));
+    template.resourceCountIs('AWS::Lambda::Url', 1);
+    template.hasResourceProperties('AWS::Lambda::Url', { AuthType: 'NONE' });
+    template.hasResourceProperties('AWS::Logs::LogGroup', { RetentionInDays: 14 });
+  });
+
+  test('lambda role is scoped to the instance, the two schedules and the target role', () => {
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({ Action: 'ec2:DescribeInstances', Resource: '*' }),
+          Match.objectLike({ Action: ['ec2:StartInstances', 'ec2:StopInstances'] }),
+          Match.objectLike({ Action: ['scheduler:GetSchedule', 'scheduler:UpdateSchedule'] }),
+          Match.objectLike({ Action: 'iam:PassRole' }),
+        ]),
+      }),
+    });
+    expect(json).toContain('schedule/default/valheim-stop');
+    expect(json).toContain('schedule/default/valheim-start');
+    expect(json.match(/"Resource":"\*"/g) ?? []).toHaveLength(1);
+  });
+
+  test('exposes the panel url and creates nothing when disabled', () => {
+    expect(Object.keys(template.findOutputs('*'))).toContain('PanelUrl');
+    const off = synth({ panel: { enabled: false } });
+    off.resourceCountIs('AWS::Lambda::Function', 0);
+    off.resourceCountIs('AWS::Lambda::Url', 0);
+    expect(Object.keys(off.findOutputs('*'))).not.toContain('PanelUrl');
   });
 });

@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Backups } from './backups';
 import { ServerConfig } from './config';
+import { ControlPanel } from './control-panel';
 import { CostGuard } from './cost-guard';
 import { GAME_PORT, Network, QUERY_PORT } from './network';
 import { Schedule } from './schedule';
@@ -27,6 +28,18 @@ export class ValheimServerStack extends cdk.Stack {
       timezone: config.timezone,
     });
     new CostGuard(this, 'CostGuard', { budgetUsd: config.budgetUsd, email: config.alertEmail });
+
+    if (config.panel.enabled) {
+      const panel = new ControlPanel(this, 'Panel', {
+        instance: server.instance,
+        publicIp: network.eip.attrPublicIp,
+        secret: settings.secret,
+        schedule,
+        timezone: config.timezone,
+        serverName: config.serverName,
+      });
+      new cdk.CfnOutput(this, 'PanelUrl', { value: panel.url.url, description: 'Control panel for friends' });
+    }
 
     const ip = network.eip.attrPublicIp;
     const instanceId = server.instance.instanceId;

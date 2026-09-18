@@ -35,6 +35,15 @@ exports[`cost guard and outputs template snapshot 1`] = `
         "Ref": "ServerInstanceE518391B",
       },
     },
+    "PanelUrl": {
+      "Description": "Control panel for friends",
+      "Value": {
+        "Fn::GetAtt": [
+          "PanelFunctionFunctionUrl8198DAB1",
+          "FunctionUrl",
+        ],
+      },
+    },
     "PasswordCommand": {
       "Value": {
         "Fn::Join": [
@@ -352,6 +361,234 @@ exports[`cost guard and outputs template snapshot 1`] = `
         },
       },
       "Type": "AWS::EC2::Subnet",
+    },
+    "PanelFunction40EFFB0C": {
+      "DependsOn": [
+        "PanelFunctionServiceRoleDefaultPolicy7946BB5B",
+        "PanelFunctionServiceRole6CDAC708",
+      ],
+      "Properties": {
+        "Architectures": [
+          "arm64",
+        ],
+        "Code": {
+          "S3Bucket": "cdk-hnb659fds-assets-623096509435-us-east-1",
+          "S3Key": "c42f722da0416ce81cb61c932fc436e73361e2d5e5f73333a24225d65746462a.zip",
+        },
+        "Environment": {
+          "Variables": {
+            "GAME_PORT": "2456",
+            "INSTANCE_ID": {
+              "Ref": "ServerInstanceE518391B",
+            },
+            "QUERY_PORT": "2457",
+            "SECRET_ARN": {
+              "Ref": "SettingsSecretF2BF6B26",
+            },
+            "SERVER_HOST": {
+              "Fn::GetAtt": [
+                "NetworkEip2FED1B11",
+                "PublicIp",
+              ],
+            },
+            "SERVER_NAME": "valheim-osrs-nerds",
+            "START_SCHEDULE_NAME": "valheim-start",
+            "STOP_SCHEDULE_NAME": "valheim-stop",
+            "TIMEZONE": "America/Toronto",
+          },
+        },
+        "Handler": "index.handler",
+        "LoggingConfig": {
+          "LogGroup": {
+            "Ref": "PanelLogs380F65D5",
+          },
+        },
+        "MemorySize": 256,
+        "Role": {
+          "Fn::GetAtt": [
+            "PanelFunctionServiceRole6CDAC708",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs22.x",
+        "Timeout": 10,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "PanelFunctionFunctionUrl8198DAB1": {
+      "Properties": {
+        "AuthType": "NONE",
+        "TargetFunctionArn": {
+          "Fn::GetAtt": [
+            "PanelFunction40EFFB0C",
+            "Arn",
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Url",
+    },
+    "PanelFunctionServiceRole6CDAC708": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "PanelFunctionServiceRoleDefaultPolicy7946BB5B": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "ec2:DescribeInstances",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            {
+              "Action": [
+                "ec2:StartInstances",
+                "ec2:StopInstances",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ec2:us-east-1:623096509435:instance/",
+                    {
+                      "Ref": "ServerInstanceE518391B",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "scheduler:GetSchedule",
+                "scheduler:UpdateSchedule",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":scheduler:us-east-1:623096509435:schedule/default/valheim-stop",
+                    ],
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":scheduler:us-east-1:623096509435:schedule/default/valheim-start",
+                    ],
+                  ],
+                },
+              ],
+            },
+            {
+              "Action": "iam:PassRole",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "ScheduleTargetRole6878809E",
+                  "Arn",
+                ],
+              },
+            },
+            {
+              "Action": [
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "SettingsSecretF2BF6B26",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "PanelFunctionServiceRoleDefaultPolicy7946BB5B",
+        "Roles": [
+          {
+            "Ref": "PanelFunctionServiceRole6CDAC708",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "PanelFunctioninvokefunctionDD27712B": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "PanelFunction40EFFB0C",
+            "Arn",
+          ],
+        },
+        "InvokedViaFunctionUrl": true,
+        "Principal": "*",
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "PanelFunctioninvokefunctionurlEBFC9741": {
+      "Properties": {
+        "Action": "lambda:InvokeFunctionUrl",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "PanelFunction40EFFB0C",
+            "Arn",
+          ],
+        },
+        "FunctionUrlAuthType": "NONE",
+        "Principal": "*",
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+    "PanelLogs380F65D5": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "RetentionInDays": 14,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
     },
     "ScheduleStart1C54F5DF": {
       "Properties": {
