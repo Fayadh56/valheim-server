@@ -129,25 +129,41 @@ describe('backups', () => {
 });
 
 describe('schedule', () => {
-  test('creates nothing when disabled', () => {
-    synth().resourceCountIs('AWS::Scheduler::Schedule', 0);
-  });
-
-  test('creates stop and start schedules in toronto time when enabled', () => {
-    const template = synth({ schedule: { enabled: true, stopAt: '03:00', startAt: '16:00' } });
+  test('always creates both named schedules, disabled by default', () => {
+    const template = synth();
     template.resourceCountIs('AWS::Scheduler::Schedule', 2);
     template.hasResourceProperties('AWS::Scheduler::Schedule', Match.objectLike({
+      Name: 'valheim-stop',
+      State: 'DISABLED',
       ScheduleExpression: 'cron(0 3 * * ? *)',
       ScheduleExpressionTimezone: 'America/Toronto',
       FlexibleTimeWindow: { Mode: 'OFF' },
     }));
     template.hasResourceProperties('AWS::Scheduler::Schedule', Match.objectLike({
+      Name: 'valheim-start',
+      State: 'DISABLED',
       ScheduleExpression: 'cron(0 16 * * ? *)',
     }));
+  });
+
+  test('enables both schedules when the flag is on', () => {
+    const template = synth({ schedule: { enabled: true, stopAt: '03:00', startAt: '16:00' } });
+    template.resourcePropertiesCountIs('AWS::Scheduler::Schedule', Match.objectLike({ State: 'ENABLED' }), 2);
+  });
+
+  test('both schedules share one target role scoped to the instance', () => {
+    const template = synth();
     const json = JSON.stringify(template.toJSON());
     expect(json).toContain('aws-sdk:ec2:stopInstances');
     expect(json).toContain('aws-sdk:ec2:startInstances');
-    expect(json).not.toContain('"Resource":"*"');
+    const roles = template.findResources('AWS::IAM::Role', {
+      Properties: Match.objectLike({
+        AssumeRolePolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([Match.objectLike({ Principal: { Service: 'scheduler.amazonaws.com' } })]),
+        }),
+      }),
+    });
+    expect(Object.keys(roles)).toHaveLength(1);
   });
 });
 

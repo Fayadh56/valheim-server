@@ -21,13 +21,11 @@ export class ValheimServerStack extends cdk.Stack {
     const settings = new ServerSettings(this, 'Settings', { config });
     const server = new ServerInstance(this, 'Server', { config, network, settings });
     new Backups(this, 'Backups', { dataVolume: server.dataVolume });
-    if (config.schedule.enabled) {
-      new Schedule(this, 'Schedule', {
-        instance: server.instance,
-        schedule: config.schedule,
-        timezone: config.timezone,
-      });
-    }
+    const schedule = new Schedule(this, 'Schedule', {
+      instance: server.instance,
+      schedule: config.schedule,
+      timezone: config.timezone,
+    });
     new CostGuard(this, 'CostGuard', { budgetUsd: config.budgetUsd, email: config.alertEmail });
 
     const ip = network.eip.attrPublicIp;

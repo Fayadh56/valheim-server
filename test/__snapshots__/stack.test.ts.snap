@@ -353,6 +353,175 @@ exports[`cost guard and outputs template snapshot 1`] = `
       },
       "Type": "AWS::EC2::Subnet",
     },
+    "ScheduleStart1C54F5DF": {
+      "Properties": {
+        "Description": "Start the Valheim server for the evening",
+        "FlexibleTimeWindow": {
+          "Mode": "OFF",
+        },
+        "Name": "valheim-start",
+        "ScheduleExpression": "cron(0 16 * * ? *)",
+        "ScheduleExpressionTimezone": "America/Toronto",
+        "State": "DISABLED",
+        "Target": {
+          "Arn": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":scheduler:::aws-sdk:ec2:startInstances",
+              ],
+            ],
+          },
+          "Input": {
+            "Fn::Join": [
+              "",
+              [
+                "{"InstanceIds":["",
+                {
+                  "Ref": "ServerInstanceE518391B",
+                },
+                ""]}",
+              ],
+            ],
+          },
+          "RetryPolicy": {
+            "MaximumEventAgeInSeconds": 86400,
+            "MaximumRetryAttempts": 185,
+          },
+          "RoleArn": {
+            "Fn::GetAtt": [
+              "ScheduleTargetRole6878809E",
+              "Arn",
+            ],
+          },
+        },
+      },
+      "Type": "AWS::Scheduler::Schedule",
+    },
+    "ScheduleStop9B534E3B": {
+      "Properties": {
+        "Description": "Stop the Valheim server for the night",
+        "FlexibleTimeWindow": {
+          "Mode": "OFF",
+        },
+        "Name": "valheim-stop",
+        "ScheduleExpression": "cron(0 3 * * ? *)",
+        "ScheduleExpressionTimezone": "America/Toronto",
+        "State": "DISABLED",
+        "Target": {
+          "Arn": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":scheduler:::aws-sdk:ec2:stopInstances",
+              ],
+            ],
+          },
+          "Input": {
+            "Fn::Join": [
+              "",
+              [
+                "{"InstanceIds":["",
+                {
+                  "Ref": "ServerInstanceE518391B",
+                },
+                ""]}",
+              ],
+            ],
+          },
+          "RetryPolicy": {
+            "MaximumEventAgeInSeconds": 86400,
+            "MaximumRetryAttempts": 185,
+          },
+          "RoleArn": {
+            "Fn::GetAtt": [
+              "ScheduleTargetRole6878809E",
+              "Arn",
+            ],
+          },
+        },
+      },
+      "Type": "AWS::Scheduler::Schedule",
+    },
+    "ScheduleTargetRole6878809E": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "scheduler.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ScheduleTargetRoleDefaultPolicyCC26D844": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "ec2:StopInstances",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ec2:us-east-1:623096509435:instance/",
+                    {
+                      "Ref": "ServerInstanceE518391B",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": "ec2:StartInstances",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ec2:us-east-1:623096509435:instance/",
+                    {
+                      "Ref": "ServerInstanceE518391B",
+                    },
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "ScheduleTargetRoleDefaultPolicyCC26D844",
+        "Roles": [
+          {
+            "Ref": "ScheduleTargetRole6878809E",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
     "ServerDataVolume3EEC0930": {
       "DeletionPolicy": "Retain",
       "Properties": {
