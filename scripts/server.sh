@@ -42,6 +42,8 @@ case "${1:-}" in
     run_on_server "docker logs --tail ${2:-100} valheim 2>&1" ;;
   service)
     run_on_server 'systemctl status valheim --no-pager; df -h /opt/valheim; ls -la /opt/valheim/config/worlds_local 2>/dev/null' ;;
+  panel)
+    echo "Control panel: $(output PanelUrl)" ;;
   shell)
     aws ssm start-session --target "$(output InstanceId)" ;;
   password)
@@ -53,6 +55,6 @@ case "${1:-}" in
       --query VersionId --output text
     echo "Now set discordNotifications: true in lib/config.ts, then npm run deploy and npm run server -- restart" ;;
   *)
-    echo "usage: $0 {ip|status|start|stop|restart|logs [lines]|service|shell|password|set-webhook <url>}" >&2
+    echo "usage: $0 {ip|panel|status|start|stop|restart|logs [lines]|service|shell|password|set-webhook <url>}" >&2
     exit 1 ;;
 esac

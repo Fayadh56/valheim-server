@@ -17,6 +17,7 @@ npm test
 npm run deploy           # 5 to 10 minutes; first boot installs Docker and pulls the image
 npm run server -- ip     # share with friends
 npm run server -- password
+npm run server -- panel    # web page for friends
 ```
 Commit `cdk.context.json` after the first deploy. It pins the Ubuntu AMI.
 
@@ -25,6 +26,7 @@ Commit `cdk.context.json` after the first deploy. It pins the Ubuntu AMI.
 | Task | Command |
 |---|---|
 | Is it up | `npm run server -- status` and `npm run server -- logs 50` |
+| Panel URL | `npm run server -- panel` |
 | Start / stop | `npm run server -- start` / `npm run server -- stop` (stop saves the world first) |
 | Shell on the box | `npm run server -- shell` |
 | Change a setting | edit `lib/config.ts`, `npm run deploy`, `npm run server -- restart` |
@@ -37,6 +39,16 @@ Commit `cdk.context.json` after the first deploy. It pins the Ubuntu AMI.
 
 In game: Start Game, Join Game, Join IP, paste the Join IP string, enter the password.
 Steam server browser: View, Game Servers, Favorites, add the Steam favorites string.
+The server is listed in the in-game server browser under its name, so friends can also
+find it there.
+
+## Control panel
+
+`npm run server -- panel` prints the URL. Friends log in with the server password (cookie
+lasts 30 days). The page shows running or stopped, players online, the connect strings,
+and the nightly schedule. Start and Stop act immediately; Stop asks for confirmation when
+players are on. Schedule edits are live and survive deploys unless `schedule` in
+`lib/config.ts` changes, in which case the next deploy resets them to those values.
 
 ## Admin
 
