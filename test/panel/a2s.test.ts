@@ -68,3 +68,7 @@ test('completes the challenge handshake against a local fake server', async () =
 test('returns null when nothing answers', async () => {
   await expect(queryInfo('127.0.0.1', 1, 200)).resolves.toBeNull();
 });
+
+test('resolves null instead of rejecting on an invalid port', async () => {
+  await expect(queryInfo('127.0.0.1', 70000, 200)).resolves.toBeNull();
+});

@@ -49,14 +49,25 @@ export function queryInfo(host: string, port: number, timeoutMs = 1500): Promise
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      socket.close();
+      try {
+        socket.close();
+      } catch {
+        // a closed socket is the state we want
+      }
       resolve(value);
+    };
+    const send = (packet: Buffer) => {
+      try {
+        socket.send(packet, port, host);
+      } catch {
+        finish(null);
+      }
     };
     const timer = setTimeout(() => finish(null), timeoutMs);
     socket.on('error', () => finish(null));
     socket.on('message', (message) => {
       if (isChallenge(message)) {
-        socket.send(Buffer.concat([INFO_REQUEST, message.subarray(5, 9)]), port, host);
+        send(Buffer.concat([INFO_REQUEST, message.subarray(5, 9)]));
         return;
       }
       try {
@@ -65,6 +76,6 @@ export function queryInfo(host: string, port: number, timeoutMs = 1500): Promise
         finish(null);
       }
     });
-    socket.send(INFO_REQUEST, port, host);
+    send(INFO_REQUEST);
   });
 }
