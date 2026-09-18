@@ -13,7 +13,7 @@ phone like an app, and stop paying for an empty server.
 | Decision | Value |
 |---|---|
 | Theme | Dark only (pine night), `color-scheme: dark`. No light variant, no toggle. |
-| Palette | Pine night `#14201B`, Birch `#E9DFC7`, Bronze `#B8863B`, Mist `#8FA39A`, Moss `#5F8F5A`, Ember `#C2452D`. |
+| Palette | Pine night `#14201B`, Birch `#E9DFC7`, Bronze `#B8863B`, Mist `#8FA39A`, Moss `#6A9C65`, Ember `#A63A26`. Moss and Ember are the filled-button colors and were tuned so their button text clears 4.5:1. |
 | Type | One family, system Palatino lineage: `"Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif`. No web fonts, no external requests. |
 | Hero | Inline SVG longhouse. Windows and door glow Bronze when running, dark when stopped; a soft radial glow behind the roof when running. Transition 600 ms on state change, none under `prefers-reduced-motion`. |
 | Status copy | running "The hall is open"; stopped "The hall is dark"; pending "Lighting the fires"; stopping "Dousing the fires"; unknown "Checking the hall". Sub-line: `N vikings online, since <time>` (1 viking, 0 "Nobody online yet", unknown count "Counting heads"). |
@@ -46,7 +46,7 @@ Password is the one you were given.
 
 Night watch
 ( ) Always on
-(•) Sleeps at [03:00], wakes at [16:00]
+(•) Sleeps at [03:00] and wakes at [16:00]
 [x] Sleep when nobody's online for an hour
     Nobody online for 23 minutes, sleeps in 37.   (only when running, empty, and the box is checked)
 [ Save ]
@@ -58,17 +58,18 @@ Details:
 - Copy buttons write to the clipboard and read "Copied" for 1.5 s, then revert.
 - Stop asks for confirmation only when players > 0: "3 vikings are online. Stop anyway?"
 - After a POST, the page redirects to `/` with a message rendered in a Mist line under the
-  hero, from the fixed `MESSAGES` map (extended with `sleep-saved` and `slept`).
+  hero, from the fixed `MESSAGES` map (the same seven keys as v1; the schedule save covers the sleep setting).
 - Focus rings are Bronze, 2 px, offset 2 px. Buttons are 44 px tall on touch.
-- Errors and empty states are sentences that say what to do: "Couldn't reach the server
-  status. It usually comes back on its own; try again in a minute."
+- Errors and empty states are sentences that say what to do. When a status poll fails the page
+  shows "Couldn't reach the server status. It usually comes back on its own; try again in a
+  minute." under the status line, and hides it again on the next success.
 
 ## Routes (Lambda `panel`)
 
 | Route | Auth | Behavior |
 |---|---|---|
 | `GET /` | cookie | Login or panel page, as before. |
-| `GET /status.json` | cookie (401 JSON otherwise) | `{ state, since, players, maxPlayers, message: null, schedule: { enabled, stopAt, startAt }, sleepWhenEmpty: { enabled, emptySince, idleMinutes }, updatedAt }`. `emptySince` is an ISO string or null; other times are ISO strings; the page formats them in the server timezone passed in the initial HTML. `cache-control: no-store`. |
+| `GET /status.json` | cookie (401 JSON otherwise) | `{ state, since, players, maxPlayers, schedule: { enabled, stopAt, startAt }, sleepWhenEmpty: { enabled, emptySince, idleMinutes }, updatedAt }`. `emptySince` is an ISO string or null; other times are ISO strings; the page formats them in the server timezone passed in the initial HTML. `cache-control: no-store`. |
 | `POST /login`, `/action`, `/logout` | as before | unchanged |
 | `POST /schedule` | cookie + same origin | Fields `mode` (`always` or `nightly`), `stopAt`, `startAt`, `sleepWhenEmpty` (checkbox). Updates both EventBridge schedules (state from `mode`) and writes the sleep parameter. Redirect `/?msg=schedule-saved`. |
 | `GET /manifest.webmanifest` | none | JSON manifest: name "Valheim server", short_name "Valheim", start_url "/", display "standalone", background_color `#14201B`, theme_color `#14201B`, icons `/icon.svg` (any, maskable) and `/icon-180.png`. `content-type: application/manifest+json`. |
@@ -114,7 +115,7 @@ Head tags on every HTML page: `<meta name="theme-color" content="#14201B">`,
 
 | File | Change |
 |---|---|
-| `lambda/panel/html.ts` | Rewrite: tokens, longhouse SVG, new copy, status JSON hydration script, manifest tags, Night watch form with `mode` radios and sleep checkbox. Exports `renderLogin`, `renderPanel`, `renderIconSvg`, `MESSAGES`, `PanelView` (fields: as before plus `sleepWhenEmpty: { enabled, emptySince: string | null, idleMinutes }`, `sinceIso`, `updatedAtIso`). |
+| `lambda/panel/html.ts` | Rewrite: tokens, longhouse SVG, new copy, status JSON hydration script, manifest tags, Night watch form with `mode` radios and sleep checkbox. Exports `renderLogin`, `renderPanel`, `renderIconSvg`, `MESSAGES`, `PanelView` (fields: as before plus `sleepWhenEmpty: { enabled, emptySince: string | null, idleMinutes }`, `sinceIso`, `nowIso`). |
 | `lambda/panel/icon.ts` | `export const ICON_180_PNG_BASE64: string`. Generated file, committed. |
 | `lambda/panel/status.ts` | Pure: `buildStatus(view)` shape for `/status.json`, shared by the initial render and the JSON route so they can never drift. |
 | `lambda/panel/sleep.ts` | Pure `decide`. |
@@ -152,4 +153,6 @@ Head tags on every HTML page: `<meta name="theme-color" content="#14201B">`,
 
 Responsive to 320 px, visible focus, reduced motion honored, contrast at least 4.5:1 for
 body text (Birch on Pine night is 12:1; Mist on Pine night is 6.2:1; Bronze on Pine night is
-6.8:1), no horizontal scroll, buttons 44 px.
+6.8:1; Birch on Ember is 4.9:1; Pine on Moss is 5.2:1), no horizontal scroll, every button at
+least 44 px tall including Copy and Log out, time inputs carry aria-labels, the status heading
+is aria-live.
