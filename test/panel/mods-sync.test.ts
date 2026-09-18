@@ -82,4 +82,15 @@ test('a missing zip keeps going and a zip-slip entry is rejected', () => {
   expect(out).toMatch(/unsafe path/);
   expect(existsSync(join(d.root, 'escape.dll'))).toBe(false);
   expect(existsSync(join(d.config, 'plugins', 'Evil-Mod'))).toBe(false);
+  expect(existsSync(join(d.cache, 'Evil-Mod-1.0.0.zip'))).toBe(false);
+});
+
+test('a corrupt archive is dropped from the cache so the next run fetches again', () => {
+  const d = setup();
+  writeFileSync(join(d.zips, 'ValheimModding-Jotunn-2.30.0.zip'), 'not a zip');
+  const out = sync(d, [jotunn]);
+  expect(out).toMatch(/skipping ValheimModding-Jotunn 2\.30\.0/);
+  expect(existsSync(join(d.cache, 'ValheimModding-Jotunn-2.30.0.zip'))).toBe(false);
+  zip(d.zips, 'ValheimModding-Jotunn-2.30.0.zip', { 'plugins/Jotunn.dll': 'j' });
+  expect(sync(d, [jotunn])).toContain('installed ValheimModding-Jotunn 2.30.0');
 });
