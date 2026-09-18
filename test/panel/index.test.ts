@@ -15,6 +15,8 @@ function fakeAws(overrides: Partial<Aws> = {}) {
     '/p/enabled': 'true',
     '/p/since': NO_TIMER,
     '/p/players': JSON.stringify({ players: ['Fellesin', 'Halo'], updatedAt: new Date(now - 30_000).toISOString() }),
+    '/p/mods': JSON.stringify([{ namespace: 'ValheimModding', name: 'Jotunn', version: '2.30.0' }]),
+    '/p/code': 'none',
   };
   const aws: Aws = {
     describeInstance: async () => ({ state: 'running', launchTime: new Date(now - 3_600_000) }),
@@ -40,6 +42,7 @@ function deps(aws: Aws, slept: number[] = []): Deps {
       secretArn: 'arn:secret', stopScheduleName: 'valheim-stop', startScheduleName: 'valheim-start',
       timezone: 'America/Toronto', serverName: 'valheim-osrs-nerds',
       sleepEnabledParameter: '/p/enabled', emptySinceParameter: '/p/since', playersParameter: '/p/players', sleepIdleMinutes: 60,
+      modsParameter: '/p/mods', profileCodeParameter: '/p/code',
     },
     queryPlayers: async () => ({ players: 2, maxPlayers: 10 }),
     sleep: async (ms) => { slept.push(ms); },
@@ -162,6 +165,16 @@ test('stale or broken watcher data hides names', async () => {
   expect(JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames).toBeNull();
 });
 
+test('mods section reflects the parameters', async () => {
+  const f = fakeAws();
+  const h = createHandler(deps(f.aws));
+  expect((await h(event({ cookie: good() }))).body).toContain('Profile code coming soon.');
+  f.params['/p/code'] = 'abc-123';
+  expect((await h(event({ cookie: good() }))).body).toContain('<code id="profile">abc-123</code>');
+  f.params['/p/mods'] = '[]';
+  expect((await h(event({ cookie: good() }))).body).not.toContain('<h2>Mods</h2>');
+});
+
 test('manifest and icons are public with the right types', async () => {
   const h = createHandler(deps(fakeAws().aws));
   const manifest = await h(event({ path: '/manifest.webmanifest' }));
@@ -242,8 +255,9 @@ test('readEnv requires every variable and parses numbers', () => {
     INSTANCE_ID: 'i-1', SERVER_HOST: 'h', GAME_PORT: '2456', QUERY_PORT: '2457', SECRET_ARN: 'a',
     STOP_SCHEDULE_NAME: 's', START_SCHEDULE_NAME: 't', TIMEZONE: 'America/Toronto', SERVER_NAME: 'n',
     SLEEP_ENABLED_PARAMETER: '/e', EMPTY_SINCE_PARAMETER: '/s', PLAYERS_PARAMETER: '/p', SLEEP_IDLE_MINUTES: '60',
+    MODS_PARAMETER: '/m', PROFILE_CODE_PARAMETER: '/c',
   };
-  expect(readEnv(full)).toMatchObject({ gamePort: 2456, queryPort: 2457, sleepEnabledParameter: '/e', emptySinceParameter: '/s', playersParameter: '/p', sleepIdleMinutes: 60 });
+  expect(readEnv(full)).toMatchObject({ gamePort: 2456, queryPort: 2457, sleepEnabledParameter: '/e', emptySinceParameter: '/s', playersParameter: '/p', sleepIdleMinutes: 60, modsParameter: '/m', profileCodeParameter: '/c' });
   const { SLEEP_IDLE_MINUTES: _omit, ...missing } = full;
   expect(() => readEnv(missing)).toThrow(/SLEEP_IDLE_MINUTES/);
 });

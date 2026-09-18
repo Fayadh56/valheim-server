@@ -1,3 +1,4 @@
+import { ModsView } from './mods';
 import { minutesIdle } from './sleep';
 
 export type InstanceState = 'running' | 'stopped' | 'pending' | 'stopping' | 'unknown';
@@ -25,6 +26,7 @@ export interface PanelView {
   schedule: ScheduleView;
   sleepWhenEmpty: SleepView;
   playerNames?: string[];
+  mods?: ModsView;
   timezone: string;
   message?: string;
   nowIso: string;
@@ -109,6 +111,9 @@ const STYLE = `
   code { font-family: inherit; font-size: 1.05em; }
   .note { color: ${C.mist}; margin: .5rem 0 0; }
   .error { color: ${C.ember}; margin: .5rem 0; }
+  a { color: ${C.bronze}; }
+  ol.steps { color: ${C.mist}; margin: .5rem 0 0; padding-left: 1.25rem; }
+  ol.steps li { margin: .2rem 0; }
   button { font: inherit; min-height: 44px; padding: .55rem 1.1rem; border-radius: 6px; border: 1px solid ${C.bronze}; background: transparent; color: ${C.birch}; cursor: pointer; }
   button:focus-visible, input:focus-visible { outline: 2px solid ${C.bronze}; outline-offset: 2px; }
   button.start { background: ${C.moss}; border-color: ${C.moss}; color: ${C.pine}; }
@@ -199,6 +204,7 @@ export function renderPanel(v: PanelView): string {
       <div class="row"><span class="label">Join IP</span><code id="join">${esc(v.connectString)}</code><button type="button" class="copy" data-for="join">Copy</button></div>
       <div class="row"><span class="label">Steam browser</span><code id="steam">${esc(v.steamString)}</code><button type="button" class="copy" data-for="steam">Copy</button></div>
       <p class="note">Password is the one you were given.</p>
+      ${v.mods ? modsSection(v.mods) : ''}
       <h2>Night watch</h2>
       <form method="post" action="/schedule">
         <div class="opt"><input type="radio" id="modeAlways" name="mode" value="always"${nightly ? '' : ' checked'}><label for="modeAlways">Always on</label></div>
@@ -219,6 +225,21 @@ export function renderPanel(v: PanelView): string {
     </main>
     <script>${clientScript(v)}</script>`;
   return page(v.serverName, body);
+}
+
+function modsSection(m: ModsView): string {
+  const code = m.profileCode
+    ? `<div class="row"><span class="label">Profile code</span><code id="profile">${esc(m.profileCode)}</code><button type="button" class="copy" data-for="profile">Copy</button></div>`
+    : '<p class="note">Profile code coming soon.</p>';
+  return `<h2>Mods</h2>
+      <p class="note">Everyone runs the same mods: ${esc(m.names.join(', '))}.</p>
+      ${code}
+      <ol class="steps">
+        <li>Install <a href="https://thunderstore.io/package/ebkr/r2modman/">r2modman</a> and pick Valheim.</li>
+        <li>Profiles, then Import / Update, then From code.</li>
+        <li>Paste the code.</li>
+        <li>Start modded.</li>
+      </ol>`;
 }
 
 // Mirrors playersLine, idleLine and formatTime so the page can refresh itself without reloading.

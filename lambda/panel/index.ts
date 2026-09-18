@@ -3,6 +3,7 @@ import { COOKIE_MAX_AGE_SECONDS, COOKIE_NAME, passwordsMatch, signCookie, verify
 import type { Aws } from './aws';
 import { InstanceState, MESSAGES, PanelView, renderIconSvg, renderLogin, renderPanel } from './html';
 import { ICON_180_PNG_BASE64 } from './icon';
+import { modsView } from './mods';
 import { parsePlayers } from './players';
 import { cronToTime, timeToCron, validateTime } from './schedule';
 import { NO_TIMER } from './sleep';
@@ -22,6 +23,8 @@ export interface Env {
   emptySinceParameter: string;
   playersParameter: string;
   sleepIdleMinutes: number;
+  modsParameter: string;
+  profileCodeParameter: string;
 }
 
 export interface Deps {
@@ -60,6 +63,8 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     emptySinceParameter: need('EMPTY_SINCE_PARAMETER'),
     playersParameter: need('PLAYERS_PARAMETER'),
     sleepIdleMinutes: Number(need('SLEEP_IDLE_MINUTES')),
+    modsParameter: need('MODS_PARAMETER'),
+    profileCodeParameter: need('PROFILE_CODE_PARAMETER'),
   };
 }
 
@@ -115,12 +120,14 @@ export function createHandler(deps: Deps) {
   };
 
   async function view(msg?: string): Promise<PanelView> {
-    const [instance, schedules, sleepEnabled, emptySince, playersRaw] = await Promise.all([
+    const [instance, schedules, sleepEnabled, emptySince, playersRaw, modsRaw, codeRaw] = await Promise.all([
       aws.describeInstance(env.instanceId),
       aws.getSchedules(env.stopScheduleName, env.startScheduleName),
       aws.getParameter(env.sleepEnabledParameter),
       aws.getParameter(env.emptySinceParameter),
       aws.getParameter(env.playersParameter),
+      aws.getParameter(env.modsParameter),
+      aws.getParameter(env.profileCodeParameter),
     ]);
     const nowIso = new Date(deps.now()).toISOString();
     const running = instance.state === 'running';
@@ -140,6 +147,7 @@ export function createHandler(deps: Deps) {
         idleMinutes: env.sleepIdleMinutes,
       },
       playerNames: parsePlayers(playersRaw, new Date(nowIso)),
+      mods: modsView(modsRaw, codeRaw),
       timezone: env.timezone,
       message: msg ? MESSAGES[msg] : undefined,
       nowIso,

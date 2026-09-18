@@ -170,3 +170,18 @@ test('start and stop confirm through the hall dialog with a browser fallback', (
   expect(html).toContain('confirm(');
   expect(html).toMatch(/<input type="hidden" name="action" id="actionInput" value="stop">/);
 });
+
+test('mods section lists the mods, the code with a copy button, and the steps', () => {
+  const html = renderPanel({ ...base, mods: { names: ['Jotunn', 'InventorySlots'], profileCode: 'abc-123' } });
+  expect(html).toContain('<h2>Mods</h2>');
+  expect(html).toContain('Everyone runs the same mods: Jotunn, InventorySlots.');
+  expect(html).toMatch(/<code id="profile">abc-123<\/code><button type="button" class="copy" data-for="profile">Copy<\/button>/);
+  expect(html).toContain('Install <a href="https://thunderstore.io/package/ebkr/r2modman/">r2modman</a> and pick Valheim.');
+  for (const step of ['Profiles, then Import / Update, then From code.', 'Paste the code.', 'Start modded.']) expect(html).toContain(step);
+  expect(html).toContain('href="https://thunderstore.io/package/ebkr/r2modman/"');
+  const soon = renderPanel({ ...base, mods: { names: ['Jotunn'], profileCode: null } });
+  expect(soon).toContain('Profile code coming soon.');
+  expect(soon).not.toContain('id="profile"');
+  expect(renderPanel(base)).not.toContain('<h2>Mods</h2>');
+  expect(renderPanel({ ...base, mods: { names: ['<b>x</b>'], profileCode: '<i>' } })).not.toMatch(/<b>x<\/b>|<i>/);
+});
