@@ -25,3 +25,26 @@ describe('network', () => {
     template.hasResource('AWS::EC2::EIP', { DeletionPolicy: 'Retain', UpdateReplacePolicy: 'Retain' });
   });
 });
+
+describe('server settings', () => {
+  const template = synth();
+
+  test('generates a 12 character alphanumeric password inside a json secret', () => {
+    template.hasResourceProperties('AWS::SecretsManager::Secret', {
+      GenerateSecretString: Match.objectLike({
+        SecretStringTemplate: '{"discordWebhook":""}',
+        GenerateStringKey: 'password',
+        PasswordLength: 12,
+        ExcludePunctuation: true,
+      }),
+    });
+  });
+
+  test('stores the compose file in an ssm parameter without secrets or extra ports', () => {
+    const params = template.findResources('AWS::SSM::Parameter');
+    const values = Object.values(params).map((p) => p.Properties.Value as string);
+    expect(values).toHaveLength(1);
+    expect(values[0]).toContain('valheim-server:1.3.0');
+    expect(values[0]).not.toMatch(/SERVER_PASS|2458|9001/);
+  });
+});
