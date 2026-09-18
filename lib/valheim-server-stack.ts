@@ -1,16 +1,19 @@
-import * as cdk from 'aws-cdk-lib/core';
+import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
+import { ServerConfig } from './config';
+import { Network } from './network';
+
+export interface ValheimServerStackProps extends cdk.StackProps {
+  config: ServerConfig;
+}
 
 export class ValheimServerStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string, props: ValheimServerStackProps) {
+    super(scope, id, { ...props, terminationProtection: true });
+    const { config } = props;
 
-    // The code that defines your stack goes here
+    const network = new Network(this, 'Network', { az: config.az });
 
-    // example resource
-    // const queue = new sqs.Queue(this, 'ValheimServerQueue', {
-    //   visibilityTimeout: cdk.Duration.seconds(300)
-    // });
+    new cdk.CfnOutput(this, 'PublicIp', { value: network.eip.attrPublicIp });
   }
 }
