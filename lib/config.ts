@@ -106,7 +106,6 @@ export const config: ServerConfig = validateConfig({
       { namespace: 'MidnightMods', name: 'ValheimCommunityPatch', version: '0.28.0' },
       { namespace: 'momos3939', name: 'ForsakenPowerOverhaul', version: '2.2.0' },
       { namespace: 'xtavim', name: 'BetterConsumables', version: '1.1.0' },
-      { namespace: 'Goldenrevolver', name: 'Quick_Stack_Store_Sort_Trash_Restock', version: '1.4.15' },
       { namespace: 'sighsorry', name: 'InventorySlots', version: '1.5.4' },
     ],
   },
