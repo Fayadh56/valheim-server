@@ -29,3 +29,27 @@ test('rejects bad schedule times', () => {
 test('reports every problem at once', () => {
   expect(() => validateConfig({ ...valid, account: 'x', imageTag: 'latest' })).toThrow(/account[\s\S]*imageTag/);
 });
+
+test('rejects a server name with an illegal character', () => {
+  expect(() => validateConfig({ ...valid, serverName: 'bad!name' })).toThrow(/serverName/);
+});
+
+test('rejects a world name with a space', () => {
+  expect(() => validateConfig({ ...valid, worldName: 'Osrs Nerds' })).toThrow(/worldName/);
+});
+
+test('rejects a malformed alert email', () => {
+  expect(() => validateConfig({ ...valid, alertEmail: 'not-an-email' })).toThrow(/alertEmail/);
+});
+
+test('rejects a non positive budget', () => {
+  expect(() => validateConfig({ ...valid, budgetUsd: 0 })).toThrow(/budgetUsd/);
+});
+
+test('rejects a save interval under a minute', () => {
+  expect(() => validateConfig({ ...valid, saveIntervalSeconds: 30 })).toThrow(/saveIntervalSeconds/);
+});
+
+test('rejects a single digit hour in startAt', () => {
+  expect(() => validateConfig({ ...valid, schedule: { ...valid.schedule, startAt: '9:00' } })).toThrow(/HH:MM/);
+});
