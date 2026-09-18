@@ -101,17 +101,23 @@ export function renderPanel(v: PanelView): string {
         <button type="submit">Save schedule</button>
       </form>
     </div>
-    <p class="muted">Updated ${esc(v.updatedAt)} · refreshes every 30 s ·
-      <form class="inline" method="post" action="/logout"><button type="submit">Log out</button></form></p>
+    <div class="muted">Updated ${esc(v.updatedAt)} · refreshes every 30 s ·
+      <form class="inline" method="post" action="/logout"><button type="submit">Log out</button></form></div>
     <script>
       function copy(id) { navigator.clipboard.writeText(document.getElementById(id).textContent); }
-    </script>`, true);
+      // Reload for fresh status, but never while someone is typing in the schedule form
+      function tick() {
+        var a = document.activeElement;
+        var editing = a && (a.tagName === 'INPUT' || a.tagName === 'SELECT');
+        if (editing) { setTimeout(tick, 5000); } else { location.reload(); }
+      }
+      setTimeout(tick, 30000);
+    </script>`);
 }
 
-function page(title: string, body: string, refresh = false): string {
+function page(title: string, body: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-${refresh ? '<meta http-equiv="refresh" content="30">' : ''}
 <title>${esc(title)}</title><style>${STYLE}</style></head>
 <body>${body}</body></html>`;
 }

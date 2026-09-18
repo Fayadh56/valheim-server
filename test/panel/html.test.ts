@@ -25,7 +25,9 @@ test('running panel shows status, players, connect strings and schedule', () => 
   expect(html).toMatch(/<button[^>]*name="action" value="start"[^>]*disabled/);
   expect(html).toMatch(/<button[^>]*name="action" value="stop"(?![^>]*disabled)/);
   expect(html).toContain('confirm(');
-  expect(html).toContain('http-equiv="refresh" content="30"');
+  expect(html).toContain('setTimeout(tick, 30000)');
+  expect(html).toContain('location.reload()');
+  expect(html).toMatch(/<div class="muted">Updated /);
 });
 
 test('stopped panel disables stop and shows unknown players as such', () => {
@@ -59,4 +61,5 @@ test('login page shows the error when given', () => {
   expect(renderLogin()).toContain('name="password"');
   expect(renderLogin()).not.toContain('class="error"');
   expect(renderLogin('Wrong password')).toContain('Wrong password');
+  expect(renderLogin()).not.toContain('location.reload()');
 });
