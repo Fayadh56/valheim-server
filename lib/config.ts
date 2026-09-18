@@ -4,8 +4,15 @@ export interface ScheduleConfig {
   startAt: string;
 }
 
+export interface SleepWhenEmptyConfig {
+  enabledByDefault: boolean;
+  idleMinutes: number;
+  checkEveryMinutes: number;
+}
+
 export interface PanelConfig {
   enabled: boolean;
+  sleepWhenEmpty: SleepWhenEmptyConfig;
 }
 
 export interface ServerConfig {
@@ -40,6 +47,9 @@ export function validateConfig(c: ServerConfig): ServerConfig {
   if (!/^\d+\.\d+\.\d+$/.test(c.imageTag)) errors.push('imageTag must be a pinned x.y.z tag, not latest');
   if (!Number.isInteger(c.saveIntervalSeconds) || c.saveIntervalSeconds < 60) errors.push('saveIntervalSeconds must be an integer of at least 60');
   if (!HHMM.test(c.schedule.stopAt) || !HHMM.test(c.schedule.startAt)) errors.push('schedule times must be HH:MM (24h)');
+  const sleep = c.panel.sleepWhenEmpty;
+  if (!Number.isInteger(sleep.idleMinutes) || sleep.idleMinutes < 10) errors.push('panel.sleepWhenEmpty.idleMinutes must be an integer of at least 10');
+  if (!Number.isInteger(sleep.checkEveryMinutes) || sleep.checkEveryMinutes < 1 || sleep.checkEveryMinutes > sleep.idleMinutes) errors.push('panel.sleepWhenEmpty.checkEveryMinutes must be an integer between 1 and idleMinutes');
   if (errors.length > 0) throw new Error(`Invalid config:\n- ${errors.join('\n- ')}`);
   return c;
 }
@@ -59,5 +69,5 @@ export const config: ServerConfig = validateConfig({
   timezone: 'America/Toronto',
   schedule: { enabled: false, stopAt: '03:00', startAt: '16:00' },
   discordNotifications: true,
-  panel: { enabled: true },
+  panel: { enabled: true, sleepWhenEmpty: { enabledByDefault: false, idleMinutes: 60, checkEveryMinutes: 10 } },
 });

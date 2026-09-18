@@ -53,3 +53,8 @@ test('rejects a save interval under a minute', () => {
 test('rejects a single digit hour in startAt', () => {
   expect(() => validateConfig({ ...valid, schedule: { ...valid.schedule, startAt: '9:00' } })).toThrow(/HH:MM/);
 });
+
+test('rejects bad sleep settings', () => {
+  expect(() => validateConfig({ ...valid, panel: { ...valid.panel, sleepWhenEmpty: { enabledByDefault: false, idleMinutes: 5, checkEveryMinutes: 1 } } })).toThrow(/idleMinutes/);
+  expect(() => validateConfig({ ...valid, panel: { ...valid.panel, sleepWhenEmpty: { enabledByDefault: false, idleMinutes: 60, checkEveryMinutes: 90 } } })).toThrow(/checkEveryMinutes/);
+});

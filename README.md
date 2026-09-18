@@ -45,10 +45,15 @@ find it there.
 ## Control panel
 
 `npm run server -- panel` prints the URL. Friends log in with the server password (cookie
-lasts 30 days). The page shows running or stopped, players online, the connect strings,
-and the nightly schedule. Start and Stop act immediately; Stop asks for confirmation when
-players are on. Schedule edits are live and survive deploys unless `schedule` in
-`lib/config.ts` changes, in which case the next deploy resets them to those values.
+lasts 30 days) and can add the page to their phone's home screen. The hall lights up when the
+server is running and shows who's on; the page refreshes itself. Start and Stop act
+immediately; Stop asks for confirmation when players are on.
+
+Night watch has two settings. "Sleeps at / wakes at" turns the nightly schedule on with those
+times. "Sleep when nobody's online for an hour" is off until someone ticks it; when on, a
+checker running every 10 minutes stops the server after 60 empty minutes and posts to
+Discord, and anyone can start it again from the page. Both settings are live and survive deploys unless `schedule` or `panel.sleepWhenEmpty`
+in `lib/config.ts` change, in which case the next deploy resets them to those values.
 
 ## Admin
 

@@ -362,6 +362,15 @@ exports[`cost guard and outputs template snapshot 1`] = `
       },
       "Type": "AWS::EC2::Subnet",
     },
+    "PanelEmptySince6852B045": {
+      "Properties": {
+        "Description": "When the Valheim server was last seen with nobody online",
+        "Name": "/valheim/panel/empty-since",
+        "Type": "String",
+        "Value": "none",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
     "PanelFunction40EFFB0C": {
       "DependsOn": [
         "PanelFunctionServiceRoleDefaultPolicy7946BB5B",
@@ -377,6 +386,7 @@ exports[`cost guard and outputs template snapshot 1`] = `
         },
         "Environment": {
           "Variables": {
+            "EMPTY_SINCE_PARAMETER": "/valheim/panel/empty-since",
             "GAME_PORT": "2456",
             "INSTANCE_ID": {
               "Ref": "ServerInstanceE518391B",
@@ -392,6 +402,8 @@ exports[`cost guard and outputs template snapshot 1`] = `
               ],
             },
             "SERVER_NAME": "valheim-osrs-nerds",
+            "SLEEP_ENABLED_PARAMETER": "/valheim/panel/sleep-when-empty",
+            "SLEEP_IDLE_MINUTES": "60",
             "START_SCHEDULE_NAME": "valheim-start",
             "STOP_SCHEDULE_NAME": "valheim-stop",
             "TIMEZONE": "America/Toronto",
@@ -534,6 +546,45 @@ exports[`cost guard and outputs template snapshot 1`] = `
             },
             {
               "Action": [
+                "ssm:GetParameter",
+                "ssm:PutParameter",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":ssm:us-east-1:623096509435:parameter",
+                      {
+                        "Ref": "PanelSleepEnabled0FFF74D4",
+                      },
+                    ],
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":ssm:us-east-1:623096509435:parameter",
+                      {
+                        "Ref": "PanelEmptySince6852B045",
+                      },
+                    ],
+                  ],
+                },
+              ],
+            },
+            {
+              "Action": [
                 "secretsmanager:GetSecretValue",
                 "secretsmanager:DescribeSecret",
               ],
@@ -589,6 +640,225 @@ exports[`cost guard and outputs template snapshot 1`] = `
       },
       "Type": "AWS::Logs::LogGroup",
       "UpdateReplacePolicy": "Delete",
+    },
+    "PanelSleepCheck596EAA37": {
+      "Properties": {
+        "Description": "Stop the Valheim server when nobody has been online for a while",
+        "FlexibleTimeWindow": {
+          "Mode": "OFF",
+        },
+        "Name": "valheim-sleep-check",
+        "ScheduleExpression": "rate(10 minutes)",
+        "ScheduleExpressionTimezone": "Etc/UTC",
+        "State": "ENABLED",
+        "Target": {
+          "Arn": {
+            "Fn::GetAtt": [
+              "PanelSleeperF11C10B8",
+              "Arn",
+            ],
+          },
+          "RetryPolicy": {
+            "MaximumEventAgeInSeconds": 86400,
+            "MaximumRetryAttempts": 185,
+          },
+          "RoleArn": {
+            "Fn::GetAtt": [
+              "SchedulerRoleForTarget938241A974FFA0",
+              "Arn",
+            ],
+          },
+        },
+      },
+      "Type": "AWS::Scheduler::Schedule",
+    },
+    "PanelSleepEnabled0FFF74D4": {
+      "Properties": {
+        "Description": "Stop the Valheim server after it has been empty for a while",
+        "Name": "/valheim/panel/sleep-when-empty",
+        "Type": "String",
+        "Value": "false",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "PanelSleeperF11C10B8": {
+      "DependsOn": [
+        "PanelSleeperServiceRoleDefaultPolicy2C2CD457",
+        "PanelSleeperServiceRole04899829",
+      ],
+      "Properties": {
+        "Architectures": [
+          "arm64",
+        ],
+        "Code": {
+          "S3Bucket": "cdk-hnb659fds-assets-623096509435-us-east-1",
+          "S3Key": "77c628db4954f86064b694b5b93a9fcd096abe9ef7135e306efeb5eb9195336d.zip",
+        },
+        "Environment": {
+          "Variables": {
+            "EMPTY_SINCE_PARAMETER": "/valheim/panel/empty-since",
+            "INSTANCE_ID": {
+              "Ref": "ServerInstanceE518391B",
+            },
+            "QUERY_PORT": "2457",
+            "SECRET_ARN": {
+              "Ref": "SettingsSecretF2BF6B26",
+            },
+            "SERVER_HOST": {
+              "Fn::GetAtt": [
+                "NetworkEip2FED1B11",
+                "PublicIp",
+              ],
+            },
+            "SLEEP_ENABLED_PARAMETER": "/valheim/panel/sleep-when-empty",
+            "SLEEP_IDLE_MINUTES": "60",
+          },
+        },
+        "Handler": "index.handler",
+        "LoggingConfig": {
+          "LogGroup": {
+            "Ref": "PanelSleeperLogsE7E0F979",
+          },
+        },
+        "MemorySize": 256,
+        "Role": {
+          "Fn::GetAtt": [
+            "PanelSleeperServiceRole04899829",
+            "Arn",
+          ],
+        },
+        "Runtime": "nodejs22.x",
+        "Timeout": 30,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "PanelSleeperLogsE7E0F979": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "RetentionInDays": 14,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "PanelSleeperServiceRole04899829": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "PanelSleeperServiceRoleDefaultPolicy2C2CD457": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "ec2:DescribeInstances",
+              "Effect": "Allow",
+              "Resource": "*",
+            },
+            {
+              "Action": "ec2:StopInstances",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ec2:us-east-1:623096509435:instance/",
+                    {
+                      "Ref": "ServerInstanceE518391B",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "ssm:GetParameter",
+                "ssm:PutParameter",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":ssm:us-east-1:623096509435:parameter",
+                      {
+                        "Ref": "PanelSleepEnabled0FFF74D4",
+                      },
+                    ],
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition",
+                      },
+                      ":ssm:us-east-1:623096509435:parameter",
+                      {
+                        "Ref": "PanelEmptySince6852B045",
+                      },
+                    ],
+                  ],
+                },
+              ],
+            },
+            {
+              "Action": [
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "SettingsSecretF2BF6B26",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "PanelSleeperServiceRoleDefaultPolicy2C2CD457",
+        "Roles": [
+          {
+            "Ref": "PanelSleeperServiceRole04899829",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
     },
     "ScheduleStart1C54F5DF": {
       "Properties": {
@@ -754,6 +1024,82 @@ exports[`cost guard and outputs template snapshot 1`] = `
         "Roles": [
           {
             "Ref": "ScheduleTargetRole6878809E",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "SchedulerRoleForTarget938241A974FFA0": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "aws:SourceAccount": "623096509435",
+                  "aws:SourceArn": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition",
+                        },
+                        ":scheduler:us-east-1:623096509435:schedule-group/default",
+                      ],
+                    ],
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "scheduler.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "SchedulerRoleForTarget938241DefaultPolicyC5248EDB": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "PanelSleeperF11C10B8",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "PanelSleeperF11C10B8",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "SchedulerRoleForTarget938241DefaultPolicyC5248EDB",
+        "Roles": [
+          {
+            "Ref": "SchedulerRoleForTarget938241A974FFA0",
           },
         ],
       },

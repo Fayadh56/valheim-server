@@ -1,4 +1,5 @@
 import { Match } from 'aws-cdk-lib/assertions';
+import { config } from '../lib/config';
 import { synth } from './helpers';
 
 describe('network', () => {
@@ -41,7 +42,9 @@ describe('server settings', () => {
   });
 
   test('stores the compose file in an ssm parameter without secrets or extra ports', () => {
-    const params = template.findResources('AWS::SSM::Parameter');
+    const params = template.findResources('AWS::SSM::Parameter', {
+      Properties: Match.objectLike({ Description: 'docker compose file for the Valheim server' }),
+    });
     const values = Object.values(params).map((p) => p.Properties.Value as string);
     expect(values).toHaveLength(1);
     expect(values[0]).toContain('valheim-server:1.3.0');
@@ -131,7 +134,7 @@ describe('backups', () => {
 describe('schedule', () => {
   test('always creates both named schedules, disabled by default', () => {
     const template = synth();
-    template.resourceCountIs('AWS::Scheduler::Schedule', 2);
+    template.resourceCountIs('AWS::Scheduler::Schedule', 3);
     template.hasResourceProperties('AWS::Scheduler::Schedule', Match.objectLike({
       Name: 'valheim-stop',
       State: 'DISABLED',
@@ -148,7 +151,8 @@ describe('schedule', () => {
 
   test('enables both schedules when the flag is on', () => {
     const template = synth({ schedule: { enabled: true, stopAt: '03:00', startAt: '16:00' } });
-    template.resourcePropertiesCountIs('AWS::Scheduler::Schedule', Match.objectLike({ State: 'ENABLED' }), 2);
+    template.hasResourceProperties('AWS::Scheduler::Schedule', Match.objectLike({ Name: 'valheim-stop', State: 'ENABLED' }));
+    template.hasResourceProperties('AWS::Scheduler::Schedule', Match.objectLike({ Name: 'valheim-start', State: 'ENABLED' }));
   });
 
   test('both schedules share one target role scoped to the instance', () => {
@@ -156,6 +160,10 @@ describe('schedule', () => {
     const json = JSON.stringify(template.toJSON());
     expect(json).toContain('aws-sdk:ec2:stopInstances');
     expect(json).toContain('aws-sdk:ec2:startInstances');
+    const nightly = Object.values(template.findResources('AWS::Scheduler::Schedule'))
+      .filter((s) => ['valheim-stop', 'valheim-start'].includes(s.Properties.Name as string));
+    expect(nightly).toHaveLength(2);
+    expect(new Set(nightly.map((s) => JSON.stringify(s.Properties.Target.RoleArn))).size).toBe(1);
     const roles = template.findResources('AWS::IAM::Role', {
       Properties: Match.objectLike({
         AssumeRolePolicyDocument: Match.objectLike({
@@ -163,8 +171,10 @@ describe('schedule', () => {
         }),
       }),
     });
-    expect(Object.keys(roles)).toHaveLength(1);
+    // the sleep check schedule brings a second scheduler-assumed role
+    expect(Object.keys(roles)).toHaveLength(2);
     const statements = Object.values(template.findResources('AWS::IAM::Policy'))
+      .filter((p) => (p.Properties.Roles as Array<{ Ref: string }>).some((r) => Object.keys(roles).includes(r.Ref)))
       .flatMap((p) => p.Properties.PolicyDocument.Statement as Array<{ Action: string | string[]; Resource: unknown }>);
     const ec2Statements = statements.filter((s) => ['ec2:StopInstances', 'ec2:StartInstances'].includes(String(s.Action)));
     expect(ec2Statements).toHaveLength(2);
@@ -172,7 +182,7 @@ describe('schedule', () => {
       expect(statement.Resource).not.toBe('*');
       expect(JSON.stringify(statement.Resource)).toMatch(/:ec2:us-east-1:623096509435:instance\//);
     }
-    expect(json.match(/"Resource":"\*"/g) ?? []).toHaveLength(1);
+    expect(json.match(/"Resource":"\*"/g) ?? []).toHaveLength(2);
   });
 });
 
@@ -216,7 +226,7 @@ describe('control panel', () => {
   const json = JSON.stringify(template.toJSON());
 
   test('one arm64 node 22 lambda behind an open function url', () => {
-    template.resourceCountIs('AWS::Lambda::Function', 1);
+    template.resourceCountIs('AWS::Lambda::Function', 2);
     template.hasResourceProperties('AWS::Lambda::Function', Match.objectLike({
       Runtime: 'nodejs22.x',
       Architectures: ['arm64'],
@@ -225,6 +235,8 @@ describe('control panel', () => {
       Environment: { Variables: Match.objectLike({
         STOP_SCHEDULE_NAME: 'valheim-stop', START_SCHEDULE_NAME: 'valheim-start', GAME_PORT: '2456', QUERY_PORT: '2457',
         TIMEZONE: 'America/Toronto', SERVER_NAME: 'valheim-osrs-nerds',
+        SLEEP_ENABLED_PARAMETER: '/valheim/panel/sleep-when-empty', EMPTY_SINCE_PARAMETER: '/valheim/panel/empty-since',
+        SLEEP_IDLE_MINUTES: '60',
         SERVER_HOST: { 'Fn::GetAtt': [Match.stringLikeRegexp('^NetworkEip'), 'PublicIp'] },
       }) },
     }));
@@ -246,14 +258,34 @@ describe('control panel', () => {
     });
     expect(json).toContain('schedule/default/valheim-stop');
     expect(json).toContain('schedule/default/valheim-start');
-    expect(json.match(/"Resource":"\*"/g) ?? []).toHaveLength(1);
+    expect(json.match(/"Resource":"\*"/g) ?? []).toHaveLength(2);
+  });
+
+  test('sleep checker: lambda, rate schedule, parameters, scoped policy', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', Match.objectLike({
+      Timeout: 30,
+      Environment: { Variables: Match.objectLike({ SLEEP_IDLE_MINUTES: '60', EMPTY_SINCE_PARAMETER: '/valheim/panel/empty-since' }) },
+    }));
+    template.hasResourceProperties('AWS::Scheduler::Schedule', Match.objectLike({ Name: 'valheim-sleep-check', State: 'ENABLED', ScheduleExpression: 'rate(10 minutes)' }));
+    template.hasResourceProperties('AWS::SSM::Parameter', { Name: '/valheim/panel/sleep-when-empty', Type: 'String', Value: 'false' });
+    template.hasResourceProperties('AWS::SSM::Parameter', { Name: '/valheim/panel/empty-since', Type: 'String', Value: 'none' });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({ Action: 'ec2:StopInstances' }),
+          Match.objectLike({ Action: ['ssm:GetParameter', 'ssm:PutParameter'] }),
+        ]),
+      }),
+    });
   });
 
   test('exposes the panel url and creates nothing when disabled', () => {
     expect(Object.keys(template.findOutputs('*'))).toContain('PanelUrl');
-    const off = synth({ panel: { enabled: false } });
+    const off = synth({ panel: { ...config.panel, enabled: false } });
     off.resourceCountIs('AWS::Lambda::Function', 0);
     off.resourceCountIs('AWS::Lambda::Url', 0);
+    off.resourceCountIs('AWS::SSM::Parameter', 1);
+    off.resourceCountIs('AWS::Scheduler::Schedule', 2);
     expect(Object.keys(off.findOutputs('*'))).not.toContain('PanelUrl');
   });
 });
