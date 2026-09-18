@@ -98,3 +98,32 @@ describe('server instance', () => {
     expect(json).not.toMatch(/set -[a-z]*x/);
   });
 });
+
+describe('backups', () => {
+  const template = synth();
+
+  test('tags the data volume for dlm', () => {
+    template.hasResourceProperties('AWS::EC2::Volume', {
+      Tags: Match.arrayWith([{ Key: 'Backup', Value: 'daily' }]),
+    });
+  });
+
+  test('daily snapshot policy at 10:00 utc keeping 7', () => {
+    template.hasResourceProperties('AWS::DLM::LifecyclePolicy', {
+      State: 'ENABLED',
+      PolicyDetails: Match.objectLike({
+        PolicyType: 'EBS_SNAPSHOT_MANAGEMENT',
+        ResourceTypes: ['VOLUME'],
+        TargetTags: [{ Key: 'Backup', Value: 'daily' }],
+        Schedules: [
+          Match.objectLike({
+            CreateRule: { Interval: 24, IntervalUnit: 'HOURS', Times: ['10:00'] },
+            RetainRule: { Count: 7 },
+            CopyTags: true,
+          }),
+        ],
+      }),
+    });
+    expect(JSON.stringify(template.toJSON())).toContain('service-role/AWSDataLifecycleManagerServiceRole');
+  });
+});
