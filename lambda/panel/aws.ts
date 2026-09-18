@@ -1,6 +1,7 @@
 import { DescribeInstancesCommand, EC2Client, StartInstancesCommand, StopInstancesCommand } from '@aws-sdk/client-ec2';
 import { GetScheduleCommand, SchedulerClient, ScheduleState, UpdateScheduleCommand } from '@aws-sdk/client-scheduler';
 import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
+import { GetParameterCommand, PutParameterCommand, SSMClient } from '@aws-sdk/client-ssm';
 
 export interface InstanceStatus {
   state: string;
@@ -20,12 +21,22 @@ export interface Aws {
   getSchedules(stopName: string, startName: string): Promise<ScheduleSettings>;
   updateSchedules(stopName: string, startName: string, settings: ScheduleSettings): Promise<void>;
   getServerPassword(secretArn: string): Promise<string>;
+  getWebhook(secretArn: string): Promise<string>;
+  getParameter(name: string): Promise<string>;
+  putParameter(name: string, value: string): Promise<void>;
+  postDiscord(webhook: string, content: string): Promise<void>;
+}
+
+interface SecretShape {
+  password?: string;
+  discordWebhook?: string;
 }
 
 export function createAws(): Aws {
   const ec2 = new EC2Client({});
   const scheduler = new SchedulerClient({});
   const secrets = new SecretsManagerClient({});
+  const ssm = new SSMClient({});
 
   const getSchedule = (name: string) => scheduler.send(new GetScheduleCommand({ Name: name, GroupName: 'default' }));
 
@@ -41,6 +52,11 @@ export function createAws(): Aws {
       Description: current.Description,
       State: enabled ? ScheduleState.ENABLED : ScheduleState.DISABLED,
     }));
+  };
+
+  const readSecret = async (secretArn: string): Promise<SecretShape> => {
+    const out = await secrets.send(new GetSecretValueCommand({ SecretId: secretArn }));
+    return JSON.parse(out.SecretString ?? '{}') as SecretShape;
   };
 
   return {
@@ -68,10 +84,27 @@ export function createAws(): Aws {
       await putSchedule(startName, settings.startCron, settings.enabled);
     },
     async getServerPassword(secretArn) {
-      const out = await secrets.send(new GetSecretValueCommand({ SecretId: secretArn }));
-      const parsed = JSON.parse(out.SecretString ?? '{}') as { password?: string };
-      if (!parsed.password) throw new Error('secret has no password field');
-      return parsed.password;
+      const { password } = await readSecret(secretArn);
+      if (!password) throw new Error('secret has no password field');
+      return password;
+    },
+    async getWebhook(secretArn) {
+      return (await readSecret(secretArn)).discordWebhook ?? '';
+    },
+    async getParameter(name) {
+      const out = await ssm.send(new GetParameterCommand({ Name: name }));
+      return out.Parameter?.Value ?? '';
+    },
+    async putParameter(name, value) {
+      await ssm.send(new PutParameterCommand({ Name: name, Value: value, Type: 'String', Overwrite: true }));
+    },
+    async postDiscord(webhook, content) {
+      const response = await fetch(webhook, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'user-agent': 'valheim-panel/1.0' },
+        body: JSON.stringify({ username: 'Valheim', content }),
+      });
+      if (!response.ok) throw new Error(`discord responded ${response.status}`);
     },
   };
 }

@@ -16,6 +16,10 @@ function fakeAws(overrides: Partial<Aws> = {}) {
     getSchedules: async () => schedules,
     updateSchedules: async (_s, _t, settings) => { calls.push('update'); schedules = settings; },
     getServerPassword: async () => password,
+    getWebhook: async () => '',
+    getParameter: async () => '',
+    putParameter: async () => {},
+    postDiscord: async () => {},
     ...overrides,
   };
   return { aws, calls, schedules: () => schedules };
