@@ -24,6 +24,7 @@ export interface PanelView {
   steamString: string;
   schedule: ScheduleView;
   sleepWhenEmpty: SleepView;
+  playerNames?: string[];
   timezone: string;
   message?: string;
   nowIso: string;
@@ -122,6 +123,12 @@ const STYLE = `
   .opt { display: flex; align-items: center; gap: .6rem; margin: .6rem 0; flex-wrap: wrap; }
   .countdown { color: ${C.mist}; margin: 0 0 .75rem 1.7rem; font-size: .95rem; min-height: 1.4em; }
   footer { color: ${C.mist}; margin-top: 2.5rem; font-size: .95rem; }
+  .names { color: ${C.birch}; margin: -1rem 0 1.25rem; }
+  dialog { background: ${C.pine}; color: ${C.birch}; border: 1px solid ${C.bronze}; border-radius: 12px; padding: 1.25rem 1.5rem; max-width: 22rem; width: calc(100% - 2.5rem); }
+  dialog::backdrop { background: rgba(20, 32, 27, .75); }
+  dialog h2 { margin: 0 0 .5rem; color: ${C.bronze}; font-size: 1.5rem; }
+  dialog p { margin: 0 0 1.25rem; color: ${C.mist}; }
+  dialog .actions { display: flex; gap: .75rem; justify-content: flex-end; }
   @media (prefers-reduced-motion: reduce) { .hall .window, .hall .glow { transition: none; } }
 `;
 
@@ -182,10 +189,12 @@ export function renderPanel(v: PanelView): string {
       ${longhouse(running, 'hall', running ? 'Longhouse, lit' : 'Longhouse, dark')}
       <h1 id="status" class="status" aria-live="polite">${STATUS_COPY[v.state]}</h1>
       <p id="sub" class="sub">${esc(playersLine(v))}</p>
+      <p id="names" class="names"${v.playerNames && v.playerNames.length ? '' : ' hidden'}>${esc((v.playerNames ?? []).join(', '))}</p>
       <p id="notice" class="msg" hidden></p>
       ${v.message ? `<p class="msg">${esc(v.message)}</p>` : ''}
       <form id="actionForm" method="post" action="/action">
-        <button id="action" type="submit" name="action" value="${running ? 'stop' : 'start'}" class="${actionClass}" data-players="${v.players ?? 0}"${running || stopped ? '' : ' disabled'}>${actionLabel}</button>
+        <input type="hidden" name="action" id="actionInput" value="${running ? 'stop' : 'start'}">
+        <button id="action" type="submit" value="${running ? 'stop' : 'start'}" class="${actionClass}" data-players="${v.players ?? 0}"${running || stopped ? '' : ' disabled'}>${actionLabel}</button>
       </form>
       <hr class="rule">
       <h2>Getting in</h2>
@@ -201,6 +210,14 @@ export function renderPanel(v: PanelView): string {
         <button type="submit">Save</button>
       </form>
       <footer><span id="updated">Updated ${esc(formatTime(v.nowIso, v.timezone, now))}</span></footer>
+      <dialog id="confirm" aria-labelledby="confirmTitle">
+        <h2 id="confirmTitle">Douse the fires?</h2>
+        <p id="confirmBody">The world saves first.</p>
+        <div class="actions">
+          <button type="button" id="confirmNo" class="quiet">Not now</button>
+          <button type="button" id="confirmYes" class="stop">Douse them</button>
+        </div>
+      </dialog>
     </main>
     <script>${clientScript(v)}</script>`;
   return page(v.serverName, body);
@@ -242,6 +259,10 @@ function clientScript(v: PanelView): string {
     b.disabled = !(running || stopped);
     b.textContent = running ? 'Stop the server' : stopped ? 'Start the server' : 'Hold on';
     b.dataset.players = s.players === null ? '0' : String(s.players);
+    document.getElementById('actionInput').value = running ? 'stop' : 'start';
+    var names = document.getElementById('names');
+    names.textContent = (s.playerNames || []).join(', ');
+    names.hidden = !(s.playerNames && s.playerNames.length);
     document.getElementById('idle').textContent = idle(s);
     document.getElementById('updated').textContent = 'Updated ' + fmt(s.updatedAt, s.updatedAt);
     document.getElementById('notice').hidden = true;
@@ -257,10 +278,29 @@ function clientScript(v: PanelView): string {
     }).then(function () { setTimeout(tick, 15000); });
   }
   setTimeout(tick, 15000);
+  var dlg = document.getElementById('confirm');
+  function copyFor(action, players) {
+    if (action === 'start') return { title: 'Light the fires?', body: 'The hall takes about two minutes to warm up.', yes: 'Light them', cls: 'start' };
+    var who = players === 0 ? 'Nobody is online.' : players === 1 ? '1 viking is online.' : players + ' vikings are online.';
+    return { title: 'Douse the fires?', body: who + ' The world saves first.', yes: 'Douse them', cls: 'stop' };
+  }
   document.getElementById('actionForm').addEventListener('submit', function (e) {
-    var b = document.getElementById('action'), p = Number(b.dataset.players || 0);
-    if (b.value === 'stop' && p > 0 && !confirm(p + (p === 1 ? ' viking is' : ' vikings are') + ' online. Stop anyway?')) e.preventDefault();
+    var form = e.target;
+    e.preventDefault();
+    var action = document.getElementById('actionInput').value;
+    var players = Number(document.getElementById('action').dataset.players || 0);
+    var c = copyFor(action, players);
+    var go = function () { form.submit(); };
+    if (!dlg || !dlg.showModal) { if (confirm(c.title + ' ' + c.body)) go(); return; }
+    document.getElementById('confirmTitle').textContent = c.title;
+    document.getElementById('confirmBody').textContent = c.body;
+    var yes = document.getElementById('confirmYes');
+    yes.textContent = c.yes; yes.className = c.cls;
+    yes.onclick = function () { dlg.close(); go(); };
+    dlg.showModal();
   });
+  document.getElementById('confirmNo').onclick = function () { dlg.close(); };
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
   Array.prototype.forEach.call(document.querySelectorAll('button.copy'), function (b) {
     b.addEventListener('click', function () {
       if (b.dataset.busy) return;

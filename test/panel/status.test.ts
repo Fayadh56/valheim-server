@@ -10,7 +10,7 @@ const view: PanelView = {
 test('maps the view to the status payload', () => {
   expect(buildStatus(view)).toEqual({
     state: 'running', since: '2026-09-18T00:00:00.000Z', players: 2, maxPlayers: 10,
-    schedule: view.schedule, sleepWhenEmpty: view.sleepWhenEmpty, updatedAt: '2026-09-18T01:00:00.000Z',
+    schedule: view.schedule, sleepWhenEmpty: view.sleepWhenEmpty, playerNames: null, updatedAt: '2026-09-18T01:00:00.000Z',
   });
 });
 
@@ -19,4 +19,9 @@ test('unknown values become null', () => {
   expect(s.since).toBeNull();
   expect(s.players).toBeNull();
   expect(s.maxPlayers).toBeNull();
+});
+
+test('player names map to the payload with null for unknown', () => {
+  expect(buildStatus({ ...view, playerNames: ['Fellesin'] }).playerNames).toEqual(['Fellesin']);
+  expect(buildStatus(view).playerNames).toBeNull();
 });

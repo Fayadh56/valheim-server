@@ -52,6 +52,7 @@ test('running page: lit hall, status copy, stop button, no light styles', () => 
   expect(html).toMatch(/<svg[^>]*id="hall"[^>]*class="hall lit"/);
   expect(html).toMatch(/<button[^>]*id="action"[^>]*value="stop"[^>]*class="stop"(?![^>]*disabled)/);
   expect(html).toContain('Stop the server');
+  expect(html).toContain('id="actionInput"');
   expect(html).toContain('data-players="3"');
   expect(html).toContain('color-scheme: dark');
   expect(html).not.toMatch(/prefers-color-scheme|theme-toggle|http-equiv="refresh"/);
@@ -147,4 +148,22 @@ test('icon svg is a standalone 512 mark', () => {
 test('no em dashes anywhere in rendered output', () => {
   expect(renderPanel(base)).not.toContain('\u2014');
   expect(renderLogin()).not.toContain('\u2014');
+});
+
+test('names line shows online characters and hides when unknown or empty', () => {
+  const named = renderPanel({ ...base, playerNames: ['Fellesin', 'Halo'] });
+  expect(named).toMatch(/<p id="names" class="names">Fellesin, Halo<\/p>/);
+  expect(renderPanel(base)).toMatch(/<p id="names" class="names" hidden>/);
+  expect(renderPanel({ ...base, playerNames: [] })).toMatch(/<p id="names" class="names" hidden>/);
+  expect(renderPanel({ ...base, playerNames: ['<b>x</b>'] })).toContain('&lt;b&gt;x&lt;/b&gt;');
+});
+
+test('start and stop confirm through the hall dialog with a browser fallback', () => {
+  const html = renderPanel(base);
+  expect(html).toContain('<dialog id="confirm"');
+  for (const id of ['confirmTitle', 'confirmBody', 'confirmYes', 'confirmNo']) expect(html).toContain(`id="${id}"`);
+  for (const copy of ['Light the fires?', 'Douse the fires?', 'The hall takes about two minutes to warm up.', 'The world saves first.', 'Light them', 'Douse them', 'Not now']) expect(html).toContain(copy);
+  expect(html).toContain('showModal');
+  expect(html).toContain('confirm(');
+  expect(html).toMatch(/<input type="hidden" name="action" id="actionInput" value="stop">/);
 });

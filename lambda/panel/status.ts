@@ -7,6 +7,7 @@ export interface StatusPayload {
   maxPlayers: number | null;
   schedule: ScheduleView;
   sleepWhenEmpty: SleepView;
+  playerNames: string[] | null;
   updatedAt: string;
 }
 
@@ -18,6 +19,7 @@ export function buildStatus(view: PanelView): StatusPayload {
     maxPlayers: view.maxPlayers ?? null,
     schedule: view.schedule,
     sleepWhenEmpty: view.sleepWhenEmpty,
+    playerNames: view.playerNames ?? null,
     updatedAt: view.nowIso,
   };
 }

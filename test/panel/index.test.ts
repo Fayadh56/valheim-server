@@ -11,7 +11,11 @@ const now = 1_800_000_000_000;
 function fakeAws(overrides: Partial<Aws> = {}) {
   const calls: string[] = [];
   let schedules: ScheduleSettings = { enabled: false, stopCron: 'cron(0 3 * * ? *)', startCron: 'cron(0 16 * * ? *)' };
-  const params: Record<string, string> = { '/p/enabled': 'true', '/p/since': NO_TIMER };
+  const params: Record<string, string> = {
+    '/p/enabled': 'true',
+    '/p/since': NO_TIMER,
+    '/p/players': JSON.stringify({ players: ['Fellesin', 'Halo'], updatedAt: new Date(now - 30_000).toISOString() }),
+  };
   const aws: Aws = {
     describeInstance: async () => ({ state: 'running', launchTime: new Date(now - 3_600_000) }),
     startInstance: async (id) => { calls.push(`start:${id}`); },
@@ -35,7 +39,7 @@ function deps(aws: Aws, slept: number[] = []): Deps {
       instanceId: 'i-123', serverHost: '100.29.76.244', gamePort: 2456, queryPort: 2457,
       secretArn: 'arn:secret', stopScheduleName: 'valheim-stop', startScheduleName: 'valheim-start',
       timezone: 'America/Toronto', serverName: 'valheim-osrs-nerds',
-      sleepEnabledParameter: '/p/enabled', emptySinceParameter: '/p/since', sleepIdleMinutes: 60,
+      sleepEnabledParameter: '/p/enabled', emptySinceParameter: '/p/since', playersParameter: '/p/players', sleepIdleMinutes: 60,
     },
     queryPlayers: async () => ({ players: 2, maxPlayers: 10 }),
     sleep: async (ms) => { slept.push(ms); },
@@ -130,6 +134,23 @@ test('player query is skipped when stopped and unknown when it times out', async
   expect((await createHandler(d2)(event({ cookie: good() }))).body).toContain('Counting heads');
 });
 
+test('names appear on the page and in status json when the watcher is fresh', async () => {
+  const f = fakeAws();
+  const h = createHandler(deps(f.aws));
+  expect((await h(event({ cookie: good() }))).body).toContain('Fellesin, Halo');
+  expect(JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames).toEqual(['Fellesin', 'Halo']);
+});
+
+test('stale or broken watcher data hides names', async () => {
+  const f = fakeAws();
+  f.params['/p/players'] = JSON.stringify({ players: ['Fellesin'], updatedAt: new Date(now - 10 * 60_000).toISOString() });
+  const h = createHandler(deps(f.aws));
+  expect((await h(event({ cookie: good() }))).body).toMatch(/id="names" class="names" hidden/);
+  expect(JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames).toBeNull();
+  f.params['/p/players'] = 'garbage';
+  expect(JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames).toBeNull();
+});
+
 test('manifest and icons are public with the right types', async () => {
   const h = createHandler(deps(fakeAws().aws));
   const manifest = await h(event({ path: '/manifest.webmanifest' }));
@@ -204,9 +225,9 @@ test('readEnv requires every variable and parses numbers', () => {
   const full = {
     INSTANCE_ID: 'i-1', SERVER_HOST: 'h', GAME_PORT: '2456', QUERY_PORT: '2457', SECRET_ARN: 'a',
     STOP_SCHEDULE_NAME: 's', START_SCHEDULE_NAME: 't', TIMEZONE: 'America/Toronto', SERVER_NAME: 'n',
-    SLEEP_ENABLED_PARAMETER: '/e', EMPTY_SINCE_PARAMETER: '/s', SLEEP_IDLE_MINUTES: '60',
+    SLEEP_ENABLED_PARAMETER: '/e', EMPTY_SINCE_PARAMETER: '/s', PLAYERS_PARAMETER: '/p', SLEEP_IDLE_MINUTES: '60',
   };
-  expect(readEnv(full)).toMatchObject({ gamePort: 2456, queryPort: 2457, sleepEnabledParameter: '/e', emptySinceParameter: '/s', sleepIdleMinutes: 60 });
+  expect(readEnv(full)).toMatchObject({ gamePort: 2456, queryPort: 2457, sleepEnabledParameter: '/e', emptySinceParameter: '/s', playersParameter: '/p', sleepIdleMinutes: 60 });
   const { SLEEP_IDLE_MINUTES: _omit, ...missing } = full;
   expect(() => readEnv(missing)).toThrow(/SLEEP_IDLE_MINUTES/);
 });
