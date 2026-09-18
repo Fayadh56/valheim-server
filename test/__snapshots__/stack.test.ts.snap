@@ -1,0 +1,735 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`cost guard and outputs template snapshot 1`] = `
+{
+  "Outputs": {
+    "ComposeParameterName": {
+      "Value": {
+        "Ref": "SettingsComposeParameterFE954861",
+      },
+    },
+    "ConnectString": {
+      "Description": "In-game Join IP",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            {
+              "Fn::GetAtt": [
+                "NetworkEip2FED1B11",
+                "PublicIp",
+              ],
+            },
+            ":2456",
+          ],
+        ],
+      },
+    },
+    "DataVolumeId": {
+      "Value": {
+        "Ref": "ServerDataVolume3EEC0930",
+      },
+    },
+    "InstanceId": {
+      "Value": {
+        "Ref": "ServerInstanceE518391B",
+      },
+    },
+    "PasswordCommand": {
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "aws secretsmanager get-secret-value --secret-id ",
+            {
+              "Ref": "SettingsSecretF2BF6B26",
+            },
+            " --region us-east-1 --query SecretString --output text",
+          ],
+        ],
+      },
+    },
+    "PublicIp": {
+      "Value": {
+        "Fn::GetAtt": [
+          "NetworkEip2FED1B11",
+          "PublicIp",
+        ],
+      },
+    },
+    "SecretArn": {
+      "Value": {
+        "Ref": "SettingsSecretF2BF6B26",
+      },
+    },
+    "ShellCommand": {
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "aws ssm start-session --target ",
+            {
+              "Ref": "ServerInstanceE518391B",
+            },
+            " --region us-east-1",
+          ],
+        ],
+      },
+    },
+    "SteamFavoritesString": {
+      "Description": "Steam server browser favorites",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            {
+              "Fn::GetAtt": [
+                "NetworkEip2FED1B11",
+                "PublicIp",
+              ],
+            },
+            ":2457",
+          ],
+        ],
+      },
+    },
+  },
+  "Parameters": {
+    "BootstrapVersion": {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+  },
+  "Resources": {
+    "BackupsDailySnapshots296ACC82": {
+      "Properties": {
+        "Description": "Daily snapshots of the Valheim data volume",
+        "ExecutionRoleArn": {
+          "Fn::GetAtt": [
+            "BackupsRoleD4F311A7",
+            "Arn",
+          ],
+        },
+        "PolicyDetails": {
+          "PolicyType": "EBS_SNAPSHOT_MANAGEMENT",
+          "ResourceTypes": [
+            "VOLUME",
+          ],
+          "Schedules": [
+            {
+              "CopyTags": true,
+              "CreateRule": {
+                "Interval": 24,
+                "IntervalUnit": "HOURS",
+                "Times": [
+                  "10:00",
+                ],
+              },
+              "Name": "Daily",
+              "RetainRule": {
+                "Count": 7,
+              },
+            },
+          ],
+          "TargetTags": [
+            {
+              "Key": "Backup",
+              "Value": "daily",
+            },
+          ],
+        },
+        "State": "ENABLED",
+      },
+      "Type": "AWS::DLM::LifecyclePolicy",
+    },
+    "BackupsRoleD4F311A7": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "dlm.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "CostGuardMonthlyBudgetB114A638": {
+      "Properties": {
+        "Budget": {
+          "BudgetLimit": {
+            "Amount": 115,
+            "Unit": "USD",
+          },
+          "BudgetName": "valheim-server-monthly",
+          "BudgetType": "COST",
+          "TimeUnit": "MONTHLY",
+        },
+        "NotificationsWithSubscribers": [
+          {
+            "Notification": {
+              "ComparisonOperator": "GREATER_THAN",
+              "NotificationType": "ACTUAL",
+              "Threshold": 80,
+              "ThresholdType": "PERCENTAGE",
+            },
+            "Subscribers": [
+              {
+                "Address": "fayadh56@gmail.com",
+                "SubscriptionType": "EMAIL",
+              },
+            ],
+          },
+          {
+            "Notification": {
+              "ComparisonOperator": "GREATER_THAN",
+              "NotificationType": "FORECASTED",
+              "Threshold": 100,
+              "ThresholdType": "PERCENTAGE",
+            },
+            "Subscribers": [
+              {
+                "Address": "fayadh56@gmail.com",
+                "SubscriptionType": "EMAIL",
+              },
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::Budgets::Budget",
+    },
+    "NetworkEip2FED1B11": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "Domain": "vpc",
+      },
+      "Type": "AWS::EC2::EIP",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "NetworkServerSecurityGroupBEF04AAA": {
+      "Properties": {
+        "GroupDescription": "Valheim server: game and query ports only",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic by default",
+            "IpProtocol": "-1",
+          },
+        ],
+        "SecurityGroupIngress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Valheim game and Steam query",
+            "FromPort": 2456,
+            "IpProtocol": "udp",
+            "ToPort": 2457,
+          },
+        ],
+        "VpcId": {
+          "Ref": "NetworkVpc7FB7348F",
+        },
+      },
+      "Type": "AWS::EC2::SecurityGroup",
+    },
+    "NetworkVpc7FB7348F": {
+      "Properties": {
+        "CidrBlock": "10.0.0.0/24",
+        "EnableDnsHostnames": true,
+        "EnableDnsSupport": true,
+        "InstanceTenancy": "default",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "TestStack/Network/Vpc",
+          },
+        ],
+      },
+      "Type": "AWS::EC2::VPC",
+    },
+    "NetworkVpcIGW6BEA7B02": {
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "TestStack/Network/Vpc",
+          },
+        ],
+      },
+      "Type": "AWS::EC2::InternetGateway",
+    },
+    "NetworkVpcVPCGW8F3799B5": {
+      "Properties": {
+        "InternetGatewayId": {
+          "Ref": "NetworkVpcIGW6BEA7B02",
+        },
+        "VpcId": {
+          "Ref": "NetworkVpc7FB7348F",
+        },
+      },
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+    },
+    "NetworkVpcpublicSubnet1DefaultRoute19622567": {
+      "DependsOn": [
+        "NetworkVpcVPCGW8F3799B5",
+      ],
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "NetworkVpcIGW6BEA7B02",
+        },
+        "RouteTableId": {
+          "Ref": "NetworkVpcpublicSubnet1RouteTableDFE49ED6",
+        },
+      },
+      "Type": "AWS::EC2::Route",
+    },
+    "NetworkVpcpublicSubnet1RouteTableAssociation203B743E": {
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "NetworkVpcpublicSubnet1RouteTableDFE49ED6",
+        },
+        "SubnetId": {
+          "Ref": "NetworkVpcpublicSubnet1Subnet00617657",
+        },
+      },
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+    },
+    "NetworkVpcpublicSubnet1RouteTableDFE49ED6": {
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "TestStack/Network/Vpc/publicSubnet1",
+          },
+        ],
+        "VpcId": {
+          "Ref": "NetworkVpc7FB7348F",
+        },
+      },
+      "Type": "AWS::EC2::RouteTable",
+    },
+    "NetworkVpcpublicSubnet1Subnet00617657": {
+      "Properties": {
+        "AvailabilityZone": "us-east-1a",
+        "CidrBlock": "10.0.0.0/26",
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "aws-cdk:subnet-name",
+            "Value": "public",
+          },
+          {
+            "Key": "aws-cdk:subnet-type",
+            "Value": "Public",
+          },
+          {
+            "Key": "Name",
+            "Value": "TestStack/Network/Vpc/publicSubnet1",
+          },
+        ],
+        "VpcId": {
+          "Ref": "NetworkVpc7FB7348F",
+        },
+      },
+      "Type": "AWS::EC2::Subnet",
+    },
+    "ServerDataVolume3EEC0930": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "AvailabilityZone": "us-east-1a",
+        "Encrypted": true,
+        "MultiAttachEnabled": false,
+        "Size": 30,
+        "Tags": [
+          {
+            "Key": "Backup",
+            "Value": "daily",
+          },
+        ],
+        "VolumeType": "gp3",
+      },
+      "Type": "AWS::EC2::Volume",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "ServerDataVolumeAttachment47477EBE": {
+      "Properties": {
+        "Device": "/dev/sdf",
+        "InstanceId": {
+          "Ref": "ServerInstanceE518391B",
+        },
+        "VolumeId": {
+          "Ref": "ServerDataVolume3EEC0930",
+        },
+      },
+      "Type": "AWS::EC2::VolumeAttachment",
+    },
+    "ServerEipAssociation635C3356": {
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "NetworkEip2FED1B11",
+            "AllocationId",
+          ],
+        },
+        "InstanceId": {
+          "Ref": "ServerInstanceE518391B",
+        },
+      },
+      "Type": "AWS::EC2::EIPAssociation",
+    },
+    "ServerInstanceE518391B": {
+      "DependsOn": [
+        "ServerRoleDefaultPolicy02C1A355",
+        "ServerRoleB6C85082",
+      ],
+      "Properties": {
+        "AvailabilityZone": "us-east-1a",
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/sda1",
+            "Ebs": {
+              "DeleteOnTermination": true,
+              "Encrypted": true,
+              "VolumeSize": 16,
+              "VolumeType": "gp3",
+            },
+          },
+        ],
+        "IamInstanceProfile": {
+          "Ref": "ServerInstanceInstanceProfile5CC6E324",
+        },
+        "ImageId": "dummy-value-for-/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id",
+        "InstanceType": "m7a.large",
+        "MetadataOptions": {
+          "HttpPutResponseHopLimit": 1,
+          "HttpTokens": "required",
+        },
+        "Monitoring": false,
+        "NetworkInterfaces": [
+          {
+            "AssociatePublicIpAddress": false,
+            "DeviceIndex": "0",
+            "GroupSet": [
+              {
+                "Fn::GetAtt": [
+                  "NetworkServerSecurityGroupBEF04AAA",
+                  "GroupId",
+                ],
+              },
+            ],
+            "SubnetId": {
+              "Ref": "NetworkVpcpublicSubnet1Subnet00617657",
+            },
+          },
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "valheim-server",
+          },
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+# The Elastic IP attaches a few seconds after boot; wait for outbound network.
+for _ in $(seq 1 60); do
+  curl -fsS --max-time 5 https://awscli.amazonaws.com/ >/dev/null 2>&1 && break
+  sleep 5
+done
+
+apt-get update -y
+apt-get install -y ca-certificates curl unzip jq
+
+curl -fsSL https://awscli.amazonaws.com/v2/install.sh | bash -s -- --system
+
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+cat > /etc/apt/sources.list.d/docker.sources <<'EOF'
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: noble
+Components: stable
+Architectures: amd64
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+cat > /etc/docker/daemon.json <<'EOF'
+{ "log-driver": "json-file", "log-opts": { "max-size": "50m", "max-file": "3" } }
+EOF
+systemctl enable docker
+systemctl restart docker
+
+VOLUME_ID="",
+                {
+                  "Ref": "ServerDataVolume3EEC0930",
+                },
+                ""
+DEVICE="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_\${VOLUME_ID//-/}"
+for _ in $(seq 1 60); do [ -e "$DEVICE" ] && break; sleep 2; done
+[ -e "$DEVICE" ] || { echo "data volume $DEVICE not found"; exit 1; }
+if ! blkid "$DEVICE" >/dev/null 2>&1; then
+  mkfs.ext4 -L valheim "$DEVICE"
+fi
+mkdir -p /opt/valheim
+grep -q 'LABEL=valheim' /etc/fstab || echo 'LABEL=valheim /opt/valheim ext4 defaults,nofail 0 2' >> /etc/fstab
+mount -a
+mkdir -p /opt/valheim/config /opt/valheim/data
+chown -R 1000:1000 /opt/valheim/config /opt/valheim/data
+
+cat > /usr/local/bin/valheim-fetch-config <<'EOF'
+#!/bin/bash
+set -euo pipefail
+REGION="us-east-1"
+PARAM="",
+                {
+                  "Ref": "SettingsComposeParameterFE954861",
+                },
+                ""
+SECRET="",
+                {
+                  "Ref": "SettingsSecretF2BF6B26",
+                },
+                ""
+aws ssm get-parameter --region "$REGION" --name "$PARAM" --query Parameter.Value --output text > /opt/valheim/compose.yaml.tmp
+mv /opt/valheim/compose.yaml.tmp /opt/valheim/compose.yaml
+SECRET_JSON="$(aws secretsmanager get-secret-value --region "$REGION" --secret-id "$SECRET" --query SecretString --output text)"
+umask 077
+printf 'SERVER_PASS=%s\\nDISCORD_WEBHOOK=%s\\n' \\
+  "$(jq -r .password <<<"$SECRET_JSON")" \\
+  "$(jq -r .discordWebhook <<<"$SECRET_JSON")" > /opt/valheim/.env.tmp
+mv /opt/valheim/.env.tmp /opt/valheim/.env
+EOF
+chmod 0755 /usr/local/bin/valheim-fetch-config
+
+cat > /etc/systemd/system/valheim.service <<'EOF'
+[Unit]
+Description=Valheim dedicated server (docker compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/valheim
+ExecStartPre=/usr/local/bin/valheim-fetch-config
+ExecStart=/usr/bin/docker compose -f /opt/valheim/compose.yaml up -d
+ExecStop=/usr/bin/docker compose -f /opt/valheim/compose.yaml stop -t 120
+TimeoutStopSec=150
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable --now valheim.service
+",
+              ],
+            ],
+          },
+        },
+      },
+      "Type": "AWS::EC2::Instance",
+    },
+    "ServerInstanceInstanceProfile5CC6E324": {
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "ServerRoleB6C85082",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::InstanceProfile",
+    },
+    "ServerRoleB6C85082": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/AmazonSSMManagedInstanceCore",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "ServerRoleDefaultPolicy02C1A355": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "SettingsSecretF2BF6B26",
+              },
+            },
+            {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:us-east-1:309448544182:parameter/",
+                    {
+                      "Ref": "SettingsComposeParameterFE954861",
+                    },
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "ServerRoleDefaultPolicy02C1A355",
+        "Roles": [
+          {
+            "Ref": "ServerRoleB6C85082",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "SettingsComposeParameterFE954861": {
+      "Properties": {
+        "Description": "docker compose file for the Valheim server",
+        "Type": "String",
+        "Value": "services:
+  valheim:
+    image: ghcr.io/community-valheim-tools/valheim-server:1.3.0
+    container_name: valheim
+    cap_add:
+      - sys_nice
+    stop_grace_period: 2m
+    restart: unless-stopped
+    ports:
+      - 2456-2457:2456-2457/udp
+    env_file:
+      - /opt/valheim/.env
+    environment:
+      SERVER_NAME: valheim-osrs-nerds
+      WORLD_NAME: OsrsNerds
+      SERVER_PUBLIC: "false"
+      SERVER_ARGS: -saveinterval 900
+      ADMINLIST_IDS: "76561198097010635"
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/Toronto
+      UPDATE_CRON: 0 * * * *
+      UPDATE_IF_IDLE: "true"
+      RESTART_CRON: 10 5 * * *
+      BACKUPS: "true"
+      BACKUPS_CRON: 5 * * * *
+      BACKUPS_MAX_COUNT: "48"
+      BACKUPS_MAX_AGE: "3"
+    volumes:
+      - /opt/valheim/config:/config
+      - /opt/valheim/data:/opt/valheim
+",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "SettingsSecretF2BF6B26": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "Description": "Valheim server password and optional Discord webhook",
+        "GenerateSecretString": {
+          "ExcludePunctuation": true,
+          "GenerateStringKey": "password",
+          "IncludeSpace": false,
+          "PasswordLength": 12,
+          "SecretStringTemplate": "{"discordWebhook":""}",
+        },
+      },
+      "Type": "AWS::SecretsManager::Secret",
+      "UpdateReplacePolicy": "Delete",
+    },
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                  ],
+                  {
+                    "Ref": "BootstrapVersion",
+                  },
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.",
+        },
+      ],
+    },
+  },
+}
+`;

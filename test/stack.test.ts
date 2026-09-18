@@ -150,3 +150,38 @@ describe('schedule', () => {
     expect(json).not.toContain('"Resource":"*"');
   });
 });
+
+describe('cost guard and outputs', () => {
+  const template = synth();
+
+  test('monthly budget with actual 80% and forecast 100% email alerts', () => {
+    template.hasResourceProperties('AWS::Budgets::Budget', {
+      Budget: Match.objectLike({
+        BudgetType: 'COST',
+        TimeUnit: 'MONTHLY',
+        BudgetLimit: { Amount: 115, Unit: 'USD' },
+      }),
+      NotificationsWithSubscribers: [
+        Match.objectLike({
+          Notification: Match.objectLike({ NotificationType: 'ACTUAL', Threshold: 80, ThresholdType: 'PERCENTAGE' }),
+          Subscribers: [{ SubscriptionType: 'EMAIL', Address: 'fayadh56@gmail.com' }],
+        }),
+        Match.objectLike({
+          Notification: Match.objectLike({ NotificationType: 'FORECASTED', Threshold: 100 }),
+        }),
+      ],
+    });
+  });
+
+  test('exposes the operator outputs', () => {
+    const outputs = Object.keys(template.findOutputs('*'));
+    expect(outputs.sort()).toEqual([
+      'ComposeParameterName', 'ConnectString', 'DataVolumeId', 'InstanceId',
+      'PasswordCommand', 'PublicIp', 'SecretArn', 'ShellCommand', 'SteamFavoritesString',
+    ]);
+  });
+
+  test('template snapshot', () => {
+    expect(template.toJSON()).toMatchSnapshot();
+  });
+});
