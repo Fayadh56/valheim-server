@@ -101,6 +101,7 @@ export const config: ServerConfig = validateConfig({
     profileName: 'OsrsNerds',
     packages: [
       { namespace: 'denikson', name: 'BepInExPack_Valheim', version: '5.4.2350', clientOnly: true },
+      { namespace: 'Azumatt', name: 'Official_BepInEx_ConfigurationManager', version: '18.4.1', clientOnly: true },
       { namespace: 'ValheimModding', name: 'Jotunn', version: '2.30.0' },
       { namespace: 'MidnightMods', name: 'NetworkPerformanceSystem', version: '1.6.0' },
       { namespace: 'MidnightMods', name: 'ValheimCommunityPatch', version: '0.28.0' },

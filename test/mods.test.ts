@@ -7,7 +7,8 @@ import { packagesJson, readConfigOverrides, serverPackages } from '../lib/mods';
 test('server packages leave out client-only ones and carry no extra fields', () => {
   const list = serverPackages(config.mods);
   expect(list.map((p) => p.name)).not.toContain('BepInExPack_Valheim');
-  expect(list).toHaveLength(config.mods.packages.length - 1);
+  expect(list).toHaveLength(config.mods.packages.filter((p) => !p.clientOnly).length);
+  expect(list.map((p) => p.name)).not.toContain('Official_BepInEx_ConfigurationManager');
   expect(Object.keys(list[0]).sort()).toEqual(['name', 'namespace', 'version']);
   expect(JSON.parse(packagesJson(config.mods))).toEqual(list);
 });
