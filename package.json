@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "scripts": {
     "build": "tsc",
-    "watch": "tsc -w",
     "test": "jest",
+    "synth": "cdk synth",
+    "diff": "cdk diff --profile ${AWS_PROFILE:-valheim}",
+    "deploy": "cdk deploy --profile ${AWS_PROFILE:-valheim} --require-approval never",
+    "bootstrap": "cdk bootstrap aws://309448544182/us-east-1 --profile ${AWS_PROFILE:-valheim}",
+    "server": "bash scripts/server.sh",
     "cdk": "cdk"
   },
   "devDependencies": {
