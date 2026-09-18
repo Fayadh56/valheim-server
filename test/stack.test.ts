@@ -222,7 +222,11 @@ describe('control panel', () => {
       Architectures: ['arm64'],
       MemorySize: 256,
       Timeout: 10,
-      Environment: { Variables: Match.objectLike({ STOP_SCHEDULE_NAME: 'valheim-stop', START_SCHEDULE_NAME: 'valheim-start', GAME_PORT: '2456', QUERY_PORT: '2457', TIMEZONE: 'America/Toronto', SERVER_NAME: 'valheim-osrs-nerds' }) },
+      Environment: { Variables: Match.objectLike({
+        STOP_SCHEDULE_NAME: 'valheim-stop', START_SCHEDULE_NAME: 'valheim-start', GAME_PORT: '2456', QUERY_PORT: '2457',
+        TIMEZONE: 'America/Toronto', SERVER_NAME: 'valheim-osrs-nerds',
+        SERVER_HOST: { 'Fn::GetAtt': [Match.stringLikeRegexp('^NetworkEip'), 'PublicIp'] },
+      }) },
     }));
     template.resourceCountIs('AWS::Lambda::Url', 1);
     template.hasResourceProperties('AWS::Lambda::Url', { AuthType: 'NONE' });
