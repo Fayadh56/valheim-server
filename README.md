@@ -33,7 +33,7 @@ Commit `cdk.context.json` after the first deploy. It pins the Ubuntu AMI.
 | Bump the image | change `imageTag` in `lib/config.ts`, same as above |
 | Resize | change `instanceType`, `npm run deploy` (about 10 min downtime) |
 | Nightly schedule | set `schedule.enabled: true`, `npm run deploy` |
-| Discord alerts | `npm run server -- set-webhook <url>`, then follow the printed steps |
+| Discord alerts | `npm run server -- set-webhook <url>` then `npm run server -- restart` |
 
 ## Joining
 

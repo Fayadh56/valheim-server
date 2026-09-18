@@ -53,7 +53,7 @@ case "${1:-}" in
     updated="$(secret_json | python3 -c 'import json,sys; d=json.load(sys.stdin); d["discordWebhook"]=sys.argv[1]; print(json.dumps(d))' "$2")"
     aws secretsmanager put-secret-value --secret-id "$(output SecretArn)" --secret-string "$updated" \
       --query VersionId --output text
-    echo "Now set discordNotifications: true in lib/config.ts, then npm run deploy and npm run server -- restart" ;;
+    echo "Stored. Run: npm run server -- restart (the service re-reads the secret on start)" ;;
   *)
     echo "usage: $0 {ip|panel|status|start|stop|restart|logs [lines]|service|shell|password|set-webhook <url>}" >&2
     exit 1 ;;
