@@ -1,8 +1,11 @@
 import type { APIGatewayProxyStructuredResultV2 as Result, LambdaFunctionURLEvent } from 'aws-lambda';
 import { COOKIE_MAX_AGE_SECONDS, COOKIE_NAME, passwordsMatch, signCookie, verifyCookie } from './auth';
 import type { Aws } from './aws';
-import { InstanceState, MESSAGES, renderLogin, renderPanel } from './html';
+import { InstanceState, MESSAGES, PanelView, renderIconSvg, renderLogin, renderPanel } from './html';
+import { ICON_180_PNG_BASE64 } from './icon';
 import { cronToTime, timeToCron, validateTime } from './schedule';
+import { NO_TIMER } from './sleep';
+import { buildStatus } from './status';
 
 export interface Env {
   instanceId: string;
@@ -14,6 +17,9 @@ export interface Env {
   startScheduleName: string;
   timezone: string;
   serverName: string;
+  sleepEnabledParameter: string;
+  emptySinceParameter: string;
+  sleepIdleMinutes: number;
 }
 
 export interface Deps {
@@ -26,7 +32,9 @@ export interface Deps {
 
 const PASSWORD_CACHE_MS = 5 * 60 * 1000;
 const WRONG_PASSWORD_DELAY_MS = 1000;
-const HTML = { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' };
+const NO_STORE = 'no-store';
+const DAY = 'public, max-age=86400';
+const PINE = '#14201B';
 
 export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const need = (name: string): string => {
@@ -44,6 +52,9 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     startScheduleName: need('START_SCHEDULE_NAME'),
     timezone: need('TIMEZONE'),
     serverName: need('SERVER_NAME'),
+    sleepEnabledParameter: need('SLEEP_ENABLED_PARAMETER'),
+    emptySinceParameter: need('EMPTY_SINCE_PARAMETER'),
+    sleepIdleMinutes: Number(need('SLEEP_IDLE_MINUTES')),
   };
 }
 
@@ -61,11 +72,20 @@ export function createHandler(deps: Deps) {
   return async (event: LambdaFunctionURLEvent): Promise<Result> => {
     const method = event.requestContext.http.method;
     const path = event.rawPath;
+
+    if (method === 'GET' && path === '/manifest.webmanifest') return manifest();
+    if (method === 'GET' && path === '/icon.svg') return { statusCode: 200, headers: { 'content-type': 'image/svg+xml', 'cache-control': DAY }, body: renderIconSvg() };
+    if (method === 'GET' && path === '/icon-180.png') return { statusCode: 200, headers: { 'content-type': 'image/png', 'cache-control': DAY }, body: ICON_180_PNG_BASE64, isBase64Encoded: true };
+
     const secret = await password();
     const authed = verifyCookie(secret, cookieValue(event), deps.now());
 
     if (method === 'GET' && path === '/') {
-      return authed ? html(await panel(event.queryStringParameters?.msg)) : html(renderLogin());
+      return authed ? html(renderPanel(await view(event.queryStringParameters?.msg))) : html(renderLogin());
+    }
+    if (method === 'GET' && path === '/status.json') {
+      if (!authed) return json(401, { error: 'login' });
+      return json(200, buildStatus(await view()));
     }
     if (method === 'POST' && path === '/login') {
       const submitted = form(event).get('password') ?? '';
@@ -81,31 +101,38 @@ export function createHandler(deps: Deps) {
       if (!sameOrigin(event)) return text(403, 'Cross-site request rejected');
       if (path === '/logout') return redirect('/', [`${COOKIE_NAME}=; ${COOKIE_ATTRIBUTES}; Max-Age=0`]);
       if (path === '/action') return action(form(event).get('action'));
-      if (path === '/schedule') return saveSchedule(form(event));
+      if (path === '/schedule') return saveNightWatch(form(event));
     }
     return text(404, 'Not found');
   };
 
-  async function panel(msg: string | undefined): Promise<string> {
-    const [instance, schedules] = await Promise.all([
+  async function view(msg?: string): Promise<PanelView> {
+    const [instance, schedules, sleepEnabled, emptySince] = await Promise.all([
       aws.describeInstance(env.instanceId),
       aws.getSchedules(env.stopScheduleName, env.startScheduleName),
+      aws.getParameter(env.sleepEnabledParameter),
+      aws.getParameter(env.emptySinceParameter),
     ]);
     const running = instance.state === 'running';
     const info = running ? await deps.queryPlayers(env.serverHost, env.queryPort) : null;
-    return renderPanel({
+    return {
       serverName: env.serverName,
       state: toState(instance.state),
-      since: instance.launchTime ? formatTime(instance.launchTime, env.timezone, true) : undefined,
+      sinceIso: instance.launchTime?.toISOString(),
       players: info?.players,
       maxPlayers: info?.maxPlayers,
       connectString: `${env.serverHost}:${env.gamePort}`,
       steamString: `${env.serverHost}:${env.queryPort}`,
       schedule: { enabled: schedules.enabled, stopAt: cronToTime(schedules.stopCron), startAt: cronToTime(schedules.startCron) },
+      sleepWhenEmpty: {
+        enabled: sleepEnabled === 'true',
+        emptySince: emptySince && emptySince !== NO_TIMER ? emptySince : null,
+        idleMinutes: env.sleepIdleMinutes,
+      },
       timezone: env.timezone,
       message: msg ? MESSAGES[msg] : undefined,
-      updatedAt: formatTime(new Date(deps.now()), env.timezone, false),
-    });
+      nowIso: new Date(deps.now()).toISOString(),
+    };
   }
 
   async function action(name: string | null): Promise<Result> {
@@ -126,21 +153,41 @@ export function createHandler(deps: Deps) {
     }
   }
 
-  async function saveSchedule(fields: URLSearchParams): Promise<Result> {
+  async function saveNightWatch(fields: URLSearchParams): Promise<Result> {
     const stopAt = fields.get('stopAt') ?? '';
     const startAt = fields.get('startAt') ?? '';
     if (!validateTime(stopAt) || !validateTime(startAt)) return redirect('/?msg=bad-time');
     try {
       await aws.updateSchedules(env.stopScheduleName, env.startScheduleName, {
-        enabled: fields.get('enabled') === 'on',
+        enabled: fields.get('mode') === 'nightly',
         stopCron: timeToCron(stopAt),
         startCron: timeToCron(startAt),
       });
+      await aws.putParameter(env.sleepEnabledParameter, fields.get('sleepWhenEmpty') === 'on' ? 'true' : 'false');
       return redirect('/?msg=schedule-saved');
     } catch (error) {
-      console.error('schedule update failed', error);
+      console.error('night watch update failed', error);
       return redirect('/?msg=error');
     }
+  }
+
+  function manifest(): Result {
+    return {
+      statusCode: 200,
+      headers: { 'content-type': 'application/manifest+json', 'cache-control': DAY },
+      body: JSON.stringify({
+        name: 'Valheim server',
+        short_name: 'Valheim',
+        start_url: '/',
+        display: 'standalone',
+        background_color: PINE,
+        theme_color: PINE,
+        icons: [
+          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: '/icon-180.png', sizes: '180x180', type: 'image/png' },
+        ],
+      }),
+    };
   }
 }
 
@@ -172,23 +219,18 @@ function toState(state: string): InstanceState {
   return (['running', 'stopped', 'pending', 'stopping'] as const).find((s) => s === state) ?? 'unknown';
 }
 
-function formatTime(date: Date, timeZone: string, withDate: boolean): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    hour: 'numeric',
-    minute: '2-digit',
-    ...(withDate ? { month: 'short', day: 'numeric' } : {}),
-  }).format(date);
+function html(body: string): Result {
+  return { statusCode: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': NO_STORE }, body };
 }
 
-function html(body: string): Result {
-  return { statusCode: 200, headers: HTML, body };
+function json(statusCode: number, body: unknown): Result {
+  return { statusCode, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': NO_STORE }, body: JSON.stringify(body) };
 }
 
 function text(statusCode: number, body: string): Result {
-  return { statusCode, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }, body };
+  return { statusCode, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': NO_STORE }, body };
 }
 
 function redirect(location: string, cookies?: string[]): Result {
-  return { statusCode: 303, headers: { location, 'cache-control': 'no-store' }, body: '', ...(cookies ? { cookies } : {}) };
+  return { statusCode: 303, headers: { location, 'cache-control': NO_STORE }, body: '', ...(cookies ? { cookies } : {}) };
 }
