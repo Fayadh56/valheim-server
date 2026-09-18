@@ -54,7 +54,16 @@ case "${1:-}" in
     aws secretsmanager put-secret-value --secret-id "$(output SecretArn)" --secret-string "$updated" \
       --query VersionId --output text
     echo "Stored. Run: npm run server -- restart (the service re-reads the secret on start)" ;;
+  set-password)
+    [ -n "${2:-}" ] || { echo "usage: $0 set-password <password>" >&2; exit 1; }
+    [ "${#2}" -ge 5 ] || { echo "Valheim needs at least 5 characters" >&2; exit 1; }
+    name="$(sed -n "s/.*serverName: '\([^']*\)'.*/\1/p" "$(dirname "$0")/../lib/config.ts")"
+    case "$name" in *"$2"*) echo "Valheim rejects a password that appears inside the server name ($name)" >&2; exit 1 ;; esac
+    updated="$(secret_json | python3 -c 'import json,sys; d=json.load(sys.stdin); d["password"]=sys.argv[1]; print(json.dumps(d))' "$2")"
+    aws secretsmanager put-secret-value --secret-id "$(output SecretArn)" --secret-string "$updated" \
+      --query VersionId --output text
+    echo "Stored. Run: npm run server -- restart (the service re-reads the secret on start; panel logins use the new password within 5 minutes)" ;;
   *)
-    echo "usage: $0 {ip|panel|status|start|stop|restart|logs [lines]|service|shell|password|set-webhook <url>}" >&2
+    echo "usage: $0 {ip|panel|status|start|stop|restart|logs [lines]|service|shell|password|set-webhook <url>|set-password <password>}" >&2
     exit 1 ;;
 esac

@@ -34,6 +34,7 @@ Commit `cdk.context.json` after the first deploy. It pins the Ubuntu AMI.
 | Resize | change `instanceType`, `npm run deploy` (about 10 min downtime) |
 | Nightly schedule | set `schedule.enabled: true`, `npm run deploy` |
 | Discord alerts | `npm run server -- set-webhook <url>` then `npm run server -- restart` |
+| Change the password | `npm run server -- set-password <password>` then `npm run server -- restart` |
 
 ## Joining
 
