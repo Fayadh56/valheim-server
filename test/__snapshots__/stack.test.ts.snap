@@ -1087,6 +1087,12 @@ systemctl enable --now valheim.service
       BACKUPS_CRON: 5 * * * *
       BACKUPS_MAX_COUNT: "48"
       BACKUPS_MAX_AGE: "3"
+      POST_SERVER_LISTENING_HOOK: "curl -sfSL -X POST -H 'Content-Type:
+        application/json' -d '{\\"content\\":\\"Valheim server is up\\"}'
+        \\"$$DISCORD_WEBHOOK\\""
+      PRE_SERVER_SHUTDOWN_HOOK: "curl -sfSL -X POST -H 'Content-Type:
+        application/json' -d '{\\"content\\":\\"Valheim server is shutting down\\"}'
+        \\"$$DISCORD_WEBHOOK\\""
     volumes:
       - /opt/valheim/config:/config
       - /opt/valheim/data:/opt/valheim

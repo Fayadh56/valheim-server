@@ -61,7 +61,7 @@ test('joins multiple admin ids with spaces', () => {
 });
 
 test('adds discord hooks only when enabled, with compose-escaped variable', () => {
-  expect(service().environment.POST_SERVER_LISTENING_HOOK).toBeUndefined();
+  expect(service({ discordNotifications: false }).environment.POST_SERVER_LISTENING_HOOK).toBeUndefined();
   const env = service({ discordNotifications: true }).environment;
   expect(env.POST_SERVER_LISTENING_HOOK).toContain('$$DISCORD_WEBHOOK');
   expect(env.PRE_SERVER_SHUTDOWN_HOOK).toContain('$$DISCORD_WEBHOOK');

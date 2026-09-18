@@ -58,6 +58,6 @@ export const config: ServerConfig = validateConfig({
   saveIntervalSeconds: 900,
   timezone: 'America/Toronto',
   schedule: { enabled: false, stopAt: '03:00', startAt: '16:00' },
-  discordNotifications: false,
+  discordNotifications: true,
   panel: { enabled: true },
 });
