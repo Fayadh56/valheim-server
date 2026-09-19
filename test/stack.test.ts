@@ -1,6 +1,6 @@
 import { Match } from 'aws-cdk-lib/assertions';
 import { config } from '../lib/config';
-import { packagesJson } from '../lib/mods';
+import { MODS_CONFIG_DIR, packagesJson, readConfigOverrides } from '../lib/mods';
 import { synth } from './helpers';
 
 describe('network', () => {
@@ -314,7 +314,8 @@ describe('control panel', () => {
     const off = synth({ panel: { ...config.panel, enabled: false } });
     off.resourceCountIs('AWS::Lambda::Function', 0);
     off.resourceCountIs('AWS::Lambda::Url', 0);
-    off.resourceCountIs('AWS::SSM::Parameter', 4);
+    // compose, players, packages, profile code, plus one per override file
+    off.resourceCountIs('AWS::SSM::Parameter', 4 + Object.keys(readConfigOverrides(MODS_CONFIG_DIR)).length);
     off.resourceCountIs('AWS::Scheduler::Schedule', 2);
     expect(Object.keys(off.findOutputs('*'))).not.toContain('PanelUrl');
   });
