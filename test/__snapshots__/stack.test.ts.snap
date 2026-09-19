@@ -1939,7 +1939,7 @@ Food Duration Multiplier = 3
         "Description": "Thunderstore packages the Valheim server installs at every start",
         "Name": "/valheim/mods/packages",
         "Type": "String",
-        "Value": "[{"namespace":"ValheimModding","name":"Jotunn","version":"2.30.0"},{"namespace":"MidnightMods","name":"NetworkPerformanceSystem","version":"1.6.0"},{"namespace":"MidnightMods","name":"ValheimCommunityPatch","version":"0.28.0"},{"namespace":"momos3939","name":"ForsakenPowerOverhaul","version":"2.2.0"},{"namespace":"xtavim","name":"BetterConsumables","version":"1.1.0"},{"namespace":"sighsorry","name":"InventorySlots","version":"1.5.4"}]",
+        "Value": "[{"namespace":"ValheimModding","name":"Jotunn","version":"2.30.0"},{"namespace":"MidnightMods","name":"NetworkPerformanceSystem","version":"1.6.0"},{"namespace":"MidnightMods","name":"ValheimCommunityPatch","version":"0.28.0"},{"namespace":"momos3939","name":"ForsakenPowerOverhaul","version":"2.2.0"},{"namespace":"xtavim","name":"BetterConsumables","version":"1.1.0"},{"namespace":"sighsorry","name":"InventorySlots","version":"1.5.4"},{"namespace":"ASharpPen","name":"Drop_That","version":"3.1.5"}]",
       },
       "Type": "AWS::SSM::Parameter",
     },

@@ -108,6 +108,7 @@ export const config: ServerConfig = validateConfig({
       { namespace: 'momos3939', name: 'ForsakenPowerOverhaul', version: '2.2.0' },
       { namespace: 'xtavim', name: 'BetterConsumables', version: '1.1.0' },
       { namespace: 'sighsorry', name: 'InventorySlots', version: '1.5.4' },
+      { namespace: 'ASharpPen', name: 'Drop_That', version: '3.1.5' },
     ],
   },
 });
