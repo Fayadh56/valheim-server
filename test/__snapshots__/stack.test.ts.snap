@@ -1793,6 +1793,30 @@ systemctl enable --now valheim.service
               },
             },
             {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:us-east-1:623096509435:parameter",
+                    {
+                      "Ref": "SettingsModConfigxtav1mBetterConsumablescfg0322DF3D",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
               "Action": "ssm:GetParametersByPath",
               "Effect": "Allow",
               "Resource": [
@@ -1895,6 +1919,17 @@ systemctl enable --now valheim.service
     volumes:
       - /opt/valheim/config:/config
       - /opt/valheim/data:/opt/valheim
+",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "SettingsModConfigxtav1mBetterConsumablescfg0322DF3D": {
+      "Properties": {
+        "Description": "BepInEx config override xtav1m.BetterConsumables.cfg",
+        "Name": "/valheim/mods/config/xtav1m.BetterConsumables.cfg",
+        "Type": "String",
+        "Value": "[Food]
+Food Duration Multiplier = 3
 ",
       },
       "Type": "AWS::SSM::Parameter",
