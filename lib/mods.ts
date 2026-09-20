@@ -8,8 +8,15 @@ export const PROFILE_CODE_PARAMETER_NAME = '/valheim/panel/profile-code';
 export const MODS_CONFIG_DIR = path.join(__dirname, '..', 'server', 'mods', 'config');
 const PARAMETER_LIMIT = 4096;
 
-export function serverPackages(mods: ModsConfig): Array<{ namespace: string; name: string; version: string }> {
-  return mods.packages.filter((p) => !p.clientOnly).map(({ namespace, name, version }) => ({ namespace, name, version }));
+export interface ServerPackage {
+  namespace: string;
+  name: string;
+  version: string;
+  serverOnly?: true;
+}
+
+export function serverPackages(mods: ModsConfig): ServerPackage[] {
+  return mods.packages.filter((p) => !p.clientOnly).map(({ namespace, name, version, serverOnly }) => ({ namespace, name, version, ...(serverOnly ? { serverOnly: true as const } : {}) }));
 }
 
 export function packagesJson(mods: ModsConfig): string {

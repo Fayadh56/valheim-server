@@ -6,6 +6,12 @@ test('names come from the package name with spaces for underscores', () => {
   expect(modsView(raw, 'abc')).toEqual({ names: ['Jotunn', 'Quick Stack Store Sort Trash Restock'], profileCode: 'abc' });
 });
 
+test('server-only packages stay off the page', () => {
+  const withServerOnly = JSON.stringify([{ namespace: 'ValheimModding', name: 'Jotunn', version: '2.30.0' }, { namespace: 'Hex_Viking', name: 'NowYouSleep', version: '1.0.3', serverOnly: true }]);
+  expect(modsView(withServerOnly, 'abc')?.names).toEqual(['Jotunn']);
+  expect(modsView(JSON.stringify([{ namespace: 'Hex_Viking', name: 'NowYouSleep', version: '1.0.3', serverOnly: true }]), 'abc')).toBeUndefined();
+});
+
 test('none or empty code is null; empty or broken list is undefined', () => {
   expect(modsView(raw, 'none')?.profileCode).toBeNull();
   expect(modsView(raw, '')?.profileCode).toBeNull();

@@ -10,6 +10,8 @@ test('server packages leave out client-only ones and carry no extra fields', () 
   expect(list).toHaveLength(config.mods.packages.filter((p) => !p.clientOnly).length);
   expect(list.map((p) => p.name)).not.toContain('Official_BepInEx_ConfigurationManager');
   expect(Object.keys(list[0]).sort()).toEqual(['name', 'namespace', 'version']);
+  const sleep = list.find((p) => p.name === 'NowYouSleep');
+  expect(sleep).toEqual({ namespace: 'Hex_Viking', name: 'NowYouSleep', version: '1.0.3', serverOnly: true });
   expect(JSON.parse(packagesJson(config.mods))).toEqual(list);
 });
 

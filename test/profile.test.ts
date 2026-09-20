@@ -6,7 +6,8 @@ import { buildExportYaml, buildProfileUpload, joinInstructions, modDisplayNames 
 test('export yaml lists every package with split versions, enabled', () => {
   const doc = parse(buildExportYaml(config.mods));
   expect(doc.profileName).toBe('OsrsNerds');
-  expect(doc.mods).toHaveLength(config.mods.packages.length);
+  expect(doc.mods).toHaveLength(config.mods.packages.filter((p) => !p.serverOnly).length);
+  expect(doc.mods.map((m: { name: string }) => m.name)).not.toContain('Hex_Viking-NowYouSleep');
   expect(doc.mods[0]).toEqual({ name: 'denikson-BepInExPack_Valheim', version: { major: 5, minor: 4, patch: 2350 }, enabled: true });
   expect(doc.mods.map((m: { name: string }) => m.name)).toContain('sighsorry-InventorySlots');
 });

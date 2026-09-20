@@ -66,5 +66,6 @@ test('rejects bad mod packages', () => {
   expect(() => validateConfig({ ...valid, mods: { ...mods, packages: [{ namespace: 'a', name: 'b-c', version: '1.2.3' }] } })).toThrow(/name/);
   expect(() => validateConfig({ ...valid, mods: { ...mods, packages: [{ namespace: 'a', name: 'b', version: '1.2.3' }, { namespace: 'a', name: 'b', version: '1.2.4' }] } })).toThrow(/once/);
   expect(() => validateConfig({ ...valid, mods: { ...mods, profileName: '' } })).toThrow(/profileName/);
+  expect(() => validateConfig({ ...valid, mods: { ...mods, packages: [{ namespace: 'a', name: 'b', version: '1.2.3', clientOnly: true, serverOnly: true }] } })).toThrow(/both/);
   expect(() => validateConfig({ ...valid, mods: { enabled: false, profileName: '', packages: [] } })).not.toThrow();
 });

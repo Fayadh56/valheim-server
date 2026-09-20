@@ -21,6 +21,8 @@ export interface ModPackage {
   version: string;
   // The image installs BepInEx itself, so the pack only goes into the players' profile
   clientOnly?: boolean;
+  // Runs on the server alone and stays out of the players' profile
+  serverOnly?: boolean;
 }
 
 export interface ModsConfig {
@@ -73,6 +75,7 @@ export function validateConfig(c: ServerConfig): ServerConfig {
     if (!pkg.test(p.name)) errors.push(`mods: name ${JSON.stringify(p.name)} may only contain letters, digits and _`);
     if (!/^\d+\.\d+\.\d+$/.test(p.version)) errors.push(`mods: ${full} version must be x.y.z`);
     if (seen.has(full)) errors.push(`mods: ${full} is listed more than once`);
+    if (p.clientOnly && p.serverOnly) errors.push(`mods: ${full} cannot be both clientOnly and serverOnly`);
     seen.add(full);
   }
   if (c.mods.enabled && !c.mods.profileName.trim()) errors.push('mods.profileName is required when mods are enabled');
@@ -109,6 +112,7 @@ export const config: ServerConfig = validateConfig({
       { namespace: 'xtavim', name: 'BetterConsumables', version: '1.1.0' },
       { namespace: 'sighsorry', name: 'InventorySlots', version: '1.5.4' },
       { namespace: 'ASharpPen', name: 'Drop_That', version: '3.1.5' },
+      { namespace: 'Hex_Viking', name: 'NowYouSleep', version: '1.0.3', serverOnly: true },
     ],
   },
 });

@@ -10,7 +10,7 @@ const HEADER = '#r2modman\n';
 export function buildExportYaml(mods: ModsConfig): string {
   return stringify({
     profileName: mods.profileName,
-    mods: mods.packages.map((p) => {
+    mods: mods.packages.filter((p) => !p.serverOnly).map((p) => {
       const [major, minor, patch] = p.version.split('.').map(Number);
       return { name: `${p.namespace}-${p.name}`, version: { major, minor, patch }, enabled: true };
     }),

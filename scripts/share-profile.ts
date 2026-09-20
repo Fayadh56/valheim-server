@@ -16,7 +16,7 @@ async function main() {
   const { key } = (await upload.json()) as { key: string };
 
   aws('ssm', 'put-parameter', '--name', PROFILE_CODE_PARAMETER_NAME, '--type', 'String', '--overwrite', '--value', key);
-  const names = modDisplayNames(config.mods.packages.filter((p) => !p.clientOnly));
+  const names = modDisplayNames(config.mods.packages.filter((p) => !p.clientOnly && !p.serverOnly));
   const message = joinInstructions(key, output('PanelUrl'), names);
 
   if (!process.argv.includes('--no-discord')) {
