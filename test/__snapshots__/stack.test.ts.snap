@@ -1810,6 +1810,30 @@ systemctl enable --now valheim.service
                     },
                     ":ssm:us-east-1:623096509435:parameter",
                     {
+                      "Ref": "SettingsModConfigJuneGameValheimForsakenPowerOverhaulcfgD5AEC8F4",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:us-east-1:623096509435:parameter",
+                    {
                       "Ref": "SettingsModConfigdropthatdroptablecfgADA43041",
                     },
                   ],
@@ -1943,6 +1967,94 @@ systemctl enable --now valheim.service
     volumes:
       - /opt/valheim/config:/config
       - /opt/valheim/data:/opt/valheim
+",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "SettingsModConfigJuneGameValheimForsakenPowerOverhaulcfgD5AEC8F4": {
+      "Properties": {
+        "Description": "BepInEx config override JuneGame.Valheim.ForsakenPowerOverhaul.cfg",
+        "Name": "/valheim/mods/config/JuneGame.Valheim.ForsakenPowerOverhaul.cfg",
+        "Type": "String",
+        "Value": "# Vanilla+ preset copied into Custom so one line can change: the Elder's equipped bonus covers pickaxes as well as woodcutting.
+[S00 Server: General]
+Preset = Custom
+[S11 Server: Eikthyr (Passive)]
+MaxStamina = 25
+EquipmentSpeedModifier = 50
+[S12 Server: Eikthyr (Equipped)]
+StaminaRegenModifier = 100
+MoveSpeedModifier = 10
+JumpForceModifier = 50
+[S13 Server: Eikthyr (Active)]
+EquipmentSpeedModifier = 50
+RunStaminaCostModifier = 50
+JumpStaminaCostModifier = 50
+[S14 Server: Eikthyr (Shared)]
+StaminaRegenModifier = 50
+[S21 Server: TheElder (Passive)]
+MaxHealth = 10
+HealthRegen = 1
+MaxWeight = 50
+[S22 Server: TheElder (Equipped)]
+OutgoingDamageTypes = WoodCutting,Pickaxes
+OutgoingDamageModifiers = 300,300
+[S23 Server: TheElder (Active)]
+OutgoingDamageTypes = Axes,Knives,Swords
+OutgoingDamageModifiers = 100,100,100
+[S24 Server: TheElder (Shared)]
+HealthRegenModifier = 50
+[S31 Server: Bonemass (Passive)]
+MaxHealth = 15
+[S32 Server: Bonemass (Equipped)]
+HealthRegenModifier = 100
+[S33 Server: Bonemass (Active)]
+IncomingDamageTypes = Pierce,Slash,Blunt
+IncomingDamageModifiers = 50,50,50
+[S34 Server: Bonemass (Shared)]
+HealthRegenModifier = 50
+[S41 Server: Moder (Passive)]
+FallDamageModifier = 50
+[S42 Server: Moder (Equipped)]
+WindSpeedModifier = 100
+StatusAttributes = SailingPower
+[S43 Server: Moder (Active)]
+MaxFallSpeed = 5
+FallDamageModifier = 100
+[S44 Server: Moder (Shared)]
+MoveSpeedModifier = 10
+[S51 Server: Yagluth (Passive)]
+MaxEitr = 20
+[S52 Server: Yagluth (Equipped)]
+EitrRegenModifier = 100
+[S53 Server: Yagluth (Active)]
+OutgoingDamageTypes = ElementalMagic
+OutgoingDamageModifiers = 100
+IncomingDamageTypes = Lightning,Frost,Fire
+IncomingDamageModifiers = 50,50,50
+[S54 Server: Yagluth (Shared)]
+EitrRegenModifier = 50
+[S61 Server: Queen (Passive)]
+MaxEitr = 30
+MaxWeight = 50
+[S62 Server: Queen (Equipped)]
+OutgoingDamageTypes = Pickaxes
+OutgoingDamageModifiers = 300
+[S63 Server: Queen (Active)]
+OutgoingDamageTypes = BloodMagic
+OutgoingDamageModifiers = 100
+[S64 Server: Queen (Shared)]
+EitrRegenModifier = 50
+[S71 Server: Fader (Passive)]
+MaxStamina = 50
+MaxWeight = 200
+[S72 Server: Fader (Equipped)]
+HeatDamageModifier = 60
+[S73 Server: Fader (Active)]
+HeatDamageModifier = 100
+[S74 Server: Fader (Shared)]
+MoveSpeedModifier = 10
+StaminaRegenModifier = 50
 ",
       },
       "Type": "AWS::SSM::Parameter",
