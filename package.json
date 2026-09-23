@@ -11,6 +11,7 @@
     "server": "bash scripts/server.sh",
     "install-scripts": "tsx scripts/install-scripts.ts",
     "share-profile": "tsx scripts/share-profile.ts",
+    "check-mods": "tsx scripts/check-mods.ts",
     "cdk": "cdk"
   },
   "devDependencies": {

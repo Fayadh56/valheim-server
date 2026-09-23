@@ -86,6 +86,7 @@ world to 1.0's directory format. This is one way. Keep a copy of the old files.
 `config.mods` in `lib/config.ts` pins every package. The server installs exactly those versions at
 each start; friends install the same set with one r2modman profile code, shown on the panel. To
 change mods: edit the list, `npm run deploy`, `npm run server -- restart`, `npm run share-profile`.
+`npm run check-mods` lists which pinned versions Thunderstore has moved past.
 Config overrides go in `server/mods/config/<file>` (only the keys that differ) and ship with the
 deploy. Turning `enabled` off returns the server to vanilla on the next restart.
 
