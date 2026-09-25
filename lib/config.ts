@@ -106,7 +106,7 @@ export const config: ServerConfig = validateConfig({
       { namespace: 'denikson', name: 'BepInExPack_Valheim', version: '5.4.2351', clientOnly: true },
       { namespace: 'Azumatt', name: 'Official_BepInEx_ConfigurationManager', version: '18.4.1', clientOnly: true },
       { namespace: 'ValheimModding', name: 'Jotunn', version: '2.30.2' },
-      { namespace: 'MidnightMods', name: 'NetworkPerformanceSystem', version: '1.8.0' },
+      { namespace: 'MidnightMods', name: 'NetworkPerformanceSystem', version: '1.9.0' },
       { namespace: 'MidnightMods', name: 'ValheimCommunityPatch', version: '0.29.0' },
       { namespace: 'momos3939', name: 'ForsakenPowerOverhaul', version: '2.2.0' },
       { namespace: 'xtavim', name: 'BetterConsumables', version: '1.1.0' },
