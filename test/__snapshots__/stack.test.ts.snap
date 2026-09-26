@@ -2027,7 +2027,7 @@ systemctl enable --now valheim.service
 [S00 Server: General]
 Preset = Custom
 PowerActiveDuration = 300
-PowerCooldownDuration = 600
+PowerCooldownDuration = 420
 [S11 Server: Eikthyr (Passive)]
 MaxStamina = 25
 EquipmentSpeedModifier = 50
