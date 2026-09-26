@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 import urllib.request
@@ -113,11 +114,57 @@ def prune(wanted, plugins_root, install_plugins):
             log(f"removed {child.name}")
 
 
+SECTION = re.compile(r"^\s*\[(.+?)\]\s*$")
+ASSIGNMENT = re.compile(r"^\s*([^#;=\[][^=]*?)\s*=")
+
+
+def assignments(text):
+    """Yield (section, key, line) for each key line of an ini-style override; comments and blanks are skipped."""
+    section = None
+    for line in text.splitlines():
+        header = SECTION.match(line)
+        if header:
+            section = header.group(1)
+            continue
+        key = ASSIGNMENT.match(line)
+        if key:
+            yield section, key.group(1).strip(), line.rstrip()
+
+
+def merge_config(existing, override):
+    """Apply the override's keys into the existing file so admin changes to other keys survive a restart."""
+    lines = existing.splitlines()
+    for section, key, line in assignments(override):
+        headers = [i for i, l in enumerate(lines) if SECTION.match(l)]
+        start = next((i for i in headers if SECTION.match(lines[i]).group(1) == section), None)
+        if section is not None and start is None:
+            if lines and lines[-1].strip():
+                lines.append("")
+            lines += [f"[{section}]", line]
+            continue
+        begin = -1 if start is None else start
+        end = next((i for i in headers if i > begin), len(lines))
+        hit = next((i for i in range(begin + 1, end) if (m := ASSIGNMENT.match(lines[i])) and m.group(1).strip() == key), None)
+        if hit is not None:
+            lines[hit] = line
+            continue
+        insert = end
+        while insert > begin + 1 and not lines[insert - 1].strip():
+            insert -= 1
+        lines.insert(insert, line)
+    return "\n".join(lines) + "\n"
+
+
 def write_overrides(overrides, config_root):
     for name, value in overrides:
         target = config_root / PurePosixPath(name).name
-        target.write_text(value)
-        log(f"wrote {target.name}")
+        sectioned = re.search(r"^\s*\[.+\]\s*$", value, re.M) is not None
+        if target.exists() and sectioned:
+            target.write_text(merge_config(target.read_text(), value))
+            log(f"merged {target.name}")
+        else:
+            target.write_text(value)
+            log(f"wrote {target.name}")
 
 
 def chown_tree(root, owner):

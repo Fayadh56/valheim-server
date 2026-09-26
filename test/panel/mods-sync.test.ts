@@ -74,6 +74,23 @@ test('writes config overrides by basename', () => {
   expect(readFileSync(join(d.config, 'xtavim.BetterConsumables.cfg'), 'utf8')).toBe('[General]\nLock Configuration = true\n');
 });
 
+test('overrides merge into an existing config, keeping other keys and comments, and stay idempotent', () => {
+  const d = setup();
+  const existing = '## Settings file\n[General]\n## Desc\n# Setting type: Boolean\nLock Configuration = false\n\n[Food]\n# Default value: 1\nFood Duration Multiplier = 1\nFood Health Multiplier = 1\n\n[Potions]\nRemove Potions Cooldown = true\n';
+  writeFileSync(join(d.config, 'x.cfg'), existing);
+  const override = '# pinned\n[Food]\nFood Duration Multiplier = 3\nFood Eitr Multiplier = 2\n[New]\nKey=1\n';
+  const out1 = sync(d, [], [['/valheim/mods/config/x.cfg', override]]);
+  expect(out1).toContain('merged x.cfg');
+  sync(d, [], [['/valheim/mods/config/x.cfg', override]]);
+  const out = readFileSync(join(d.config, 'x.cfg'), 'utf8');
+  expect(out).toContain('## Settings file\n[General]\n## Desc\n# Setting type: Boolean\nLock Configuration = false\n');
+  expect(out).toContain('# Default value: 1\nFood Duration Multiplier = 3\nFood Health Multiplier = 1\nFood Eitr Multiplier = 2\n\n[Potions]\nRemove Potions Cooldown = true\n');
+  expect(out.endsWith('[New]\nKey=1\n')).toBe(true);
+  expect(out.match(/Food Duration Multiplier/g)).toHaveLength(1);
+  expect(out.match(/\[New\]/g)).toHaveLength(1);
+  expect(out).not.toContain('# pinned');
+});
+
 test('a missing zip keeps going and a zip-slip entry is rejected', () => {
   const d = setup();
   zip(d.zips, 'Evil-Mod-1.0.0.zip', { '../escape.dll': 'e', 'ok.dll': 'o' });
