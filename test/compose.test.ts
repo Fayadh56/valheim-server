@@ -40,7 +40,7 @@ test('sets the server environment', () => {
     SERVER_NAME: 'valheim-osrs-nerds',
     WORLD_NAME: 'OsrsNerds',
     SERVER_PUBLIC: 'true',
-    SERVER_ARGS: '-saveinterval 900',
+    SERVER_ARGS: '-saveinterval 900 -modifier deathpenalty veryeasy',
     ADMINLIST_IDS: '76561198097010635',
     PUID: '1000',
     PGID: '1000',
@@ -70,6 +70,11 @@ test('adds discord hooks only when enabled, with compose-escaped variable', () =
 
 test('lists the server publicly so the panel can query player count', () => {
   expect(service().environment.SERVER_PUBLIC).toBe('true');
+});
+
+test('world modifiers ride along in the server arguments only when set', () => {
+  expect(service({ worldModifiers: {} }).environment.SERVER_ARGS).toBe('-saveinterval 900');
+  expect(service({ worldModifiers: { deathPenalty: 'casual' } }).environment.SERVER_ARGS).toBe('-saveinterval 900 -modifier deathpenalty casual');
 });
 
 test('turns BepInEx on only when mods are enabled', () => {

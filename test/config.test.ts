@@ -59,6 +59,11 @@ test('rejects bad sleep settings', () => {
   expect(() => validateConfig({ ...valid, panel: { ...valid.panel, sleepWhenEmpty: { enabledByDefault: false, idleMinutes: 60, checkEveryMinutes: 90 } } })).toThrow(/checkEveryMinutes/);
 });
 
+test('rejects an unknown death penalty', () => {
+  expect(() => validateConfig({ ...valid, worldModifiers: { deathPenalty: 'brutal' as 'hard' } })).toThrow(/deathPenalty/);
+  expect(() => validateConfig({ ...valid, worldModifiers: {} })).not.toThrow();
+});
+
 test('rejects bad mod packages', () => {
   const mods = valid.mods;
   expect(() => validateConfig({ ...valid, mods: { ...mods, packages: [{ namespace: 'a', name: 'b', version: '1.2' }] } })).toThrow(/version/);

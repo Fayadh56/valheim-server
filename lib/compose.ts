@@ -10,7 +10,7 @@ export function composeDefinition(c: ServerConfig): Record<string, unknown> {
     SERVER_NAME: c.serverName,
     WORLD_NAME: c.worldName,
     SERVER_PUBLIC: 'true',
-    SERVER_ARGS: `-saveinterval ${c.saveIntervalSeconds}`,
+    SERVER_ARGS: serverArgs(c),
     ADMINLIST_IDS: c.adminSteamIds.join(' '),
     PUID: '1000',
     PGID: '1000',
@@ -49,6 +49,12 @@ export function composeDefinition(c: ServerConfig): Record<string, unknown> {
 // DISCORD_WEBHOOK at run time, so the URL never appears in the compose file.
 function discordHook(message: string): string {
   return `curl -sfSL -X POST -H 'Content-Type: application/json' -d '{"content":"${message}"}' "$$DISCORD_WEBHOOK"`;
+}
+
+export function serverArgs(c: ServerConfig): string {
+  const args = [`-saveinterval ${c.saveIntervalSeconds}`];
+  if (c.worldModifiers.deathPenalty) args.push(`-modifier deathpenalty ${c.worldModifiers.deathPenalty}`);
+  return args.join(' ');
 }
 
 export function renderCompose(c: ServerConfig): string {
