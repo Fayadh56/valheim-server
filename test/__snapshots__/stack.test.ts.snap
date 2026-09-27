@@ -1905,6 +1905,30 @@ systemctl enable --now valheim.service
                     },
                     ":ssm:us-east-1:623096509435:parameter",
                     {
+                      "Ref": "SettingsModConfigdropthatdroptablesofttissuecfg8C9C73BB",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:us-east-1:623096509435:parameter",
+                    {
                       "Ref": "SettingsModConfigxtav1mBetterConsumablescfg0322DF3D",
                     },
                   ],
@@ -2367,6 +2391,25 @@ AmountMax=2
 [MineRock_Iron.1]
 AmountMin=2
 AmountMax=2
+",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "SettingsModConfigdropthatdroptablesofttissuecfg8C9C73BB": {
+      "Properties": {
+        "Description": "BepInEx config override drop_that.drop_table.softtissue.cfg",
+        "Name": "/valheim/mods/config/drop_that.drop_table.softtissue.cfg",
+        "Type": "String",
+        "Value": "# 2x Soft Tissue everywhere it drops: giant brains in the Mistlands, dvergr crates, Morgen holes.
+[giant_brain_frac.0]
+AmountMin=2
+AmountMax=2
+[dvergrprops_crate.1]
+AmountMin=4
+AmountMax=8
+[morgenhole_pile.2]
+AmountMin=2
+AmountMax=4
 ",
       },
       "Type": "AWS::SSM::Parameter",
