@@ -10,11 +10,10 @@ import * as targets from 'aws-cdk-lib/aws-scheduler-targets';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { SleepWhenEmptyConfig } from './config';
+import { SleepWhenEmptyConfig, WorldConfig } from './config';
 import { MODS_PARAMETER_NAME, PROFILE_CODE_PARAMETER_NAME } from './mods';
-import { GAME_PORT, QUERY_PORT } from './network';
-import { PLAYERS_PARAMETER_NAME } from './players-watcher';
 import { Schedule, START_SCHEDULE_NAME, STOP_SCHEDULE_NAME } from './schedule';
+import { worldsEnv } from './worlds';
 
 export const SLEEP_ENABLED_PARAMETER = '/valheim/panel/sleep-when-empty';
 export const EMPTY_SINCE_PARAMETER = '/valheim/panel/empty-since';
@@ -28,7 +27,8 @@ export interface ControlPanelProps {
   timezone: string;
   serverName: string;
   sleepWhenEmpty: SleepWhenEmptyConfig;
-  playersParameter: ssm.IStringParameter;
+  worlds: WorldConfig[];
+  playersParameters: ssm.IStringParameter[];
   modsParameter: ssm.IStringParameter;
   profileCodeParameter: ssm.IStringParameter;
 }
@@ -56,7 +56,7 @@ export class ControlPanel extends Construct {
     const sharedEnv = {
       INSTANCE_ID: props.instance.instanceId,
       SERVER_HOST: props.publicIp,
-      QUERY_PORT: String(QUERY_PORT),
+      WORLDS: worldsEnv(props.worlds),
       SECRET_ARN: props.secret.secretArn,
       SLEEP_ENABLED_PARAMETER,
       EMPTY_SINCE_PARAMETER,
@@ -82,12 +82,10 @@ export class ControlPanel extends Construct {
       logGroup: logGroup('Logs'),
       environment: {
         ...sharedEnv,
-        GAME_PORT: String(GAME_PORT),
         STOP_SCHEDULE_NAME,
         START_SCHEDULE_NAME,
         TIMEZONE: props.timezone,
         SERVER_NAME: props.serverName,
-        PLAYERS_PARAMETER: PLAYERS_PARAMETER_NAME,
         MODS_PARAMETER: MODS_PARAMETER_NAME,
         PROFILE_CODE_PARAMETER: PROFILE_CODE_PARAMETER_NAME,
       },
@@ -102,7 +100,7 @@ export class ControlPanel extends Construct {
     panel.addToRolePolicy(new iam.PolicyStatement({ actions: ['iam:PassRole'], resources: [props.schedule.targetRole.roleArn] }));
     panel.addToRolePolicy(parameterAccess);
     props.secret.grantRead(panel);
-    props.playersParameter.grantRead(panel);
+    for (const p of props.playersParameters) p.grantRead(panel);
     props.modsParameter.grantRead(panel);
     props.profileCodeParameter.grantRead(panel);
     this.url = panel.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.NONE });

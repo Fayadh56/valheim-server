@@ -1,12 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
-
-export const GAME_PORT = 2456;
-export const QUERY_PORT = 2457;
+import { WorldConfig } from './config';
 
 export interface NetworkProps {
   az: string;
+  worlds: WorldConfig[];
 }
 
 export class Network extends Construct {
@@ -30,11 +29,9 @@ export class Network extends Construct {
       description: 'Valheim server: game and query ports only',
       allowAllOutbound: true,
     });
-    this.securityGroup.addIngressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.udpRange(GAME_PORT, QUERY_PORT),
-      'Valheim game and Steam query',
-    );
+    for (const world of props.worlds) {
+      this.securityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.udpRange(world.port, world.port + 1), `Valheim ${world.name}`);
+    }
 
     this.eip = new ec2.CfnEIP(this, 'Eip', { domain: 'vpc' });
     this.eip.applyRemovalPolicy(cdk.RemovalPolicy.RETAIN);

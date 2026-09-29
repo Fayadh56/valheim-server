@@ -12,6 +12,7 @@
     "install-scripts": "tsx scripts/install-scripts.ts",
     "share-profile": "tsx scripts/share-profile.ts",
     "check-mods": "tsx scripts/check-mods.ts",
+    "import-world": "tsx scripts/import-world.ts",
     "cdk": "cdk"
   },
   "devDependencies": {

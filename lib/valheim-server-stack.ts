@@ -4,10 +4,11 @@ import { Backups } from './backups';
 import { ServerConfig } from './config';
 import { ControlPanel } from './control-panel';
 import { CostGuard } from './cost-guard';
-import { GAME_PORT, Network, QUERY_PORT } from './network';
+import { Network } from './network';
 import { Schedule } from './schedule';
 import { ServerInstance } from './server-instance';
 import { ServerSettings } from './server-settings';
+import { Transfers } from './transfers';
 
 export interface ValheimServerStackProps extends cdk.StackProps {
   config: ServerConfig;
@@ -18,9 +19,10 @@ export class ValheimServerStack extends cdk.Stack {
     super(scope, id, { ...props, terminationProtection: true });
     const { config } = props;
 
-    const network = new Network(this, 'Network', { az: config.az });
+    const network = new Network(this, 'Network', { az: config.az, worlds: config.worlds });
     const settings = new ServerSettings(this, 'Settings', { config });
-    const server = new ServerInstance(this, 'Server', { config, network, settings });
+    const transfers = new Transfers(this, 'Transfers');
+    const server = new ServerInstance(this, 'Server', { config, network, settings, transfers });
     new Backups(this, 'Backups', { dataVolume: server.dataVolume });
     const schedule = new Schedule(this, 'Schedule', {
       instance: server.instance,
@@ -38,7 +40,8 @@ export class ValheimServerStack extends cdk.Stack {
         timezone: config.timezone,
         serverName: config.serverName,
         sleepWhenEmpty: config.panel.sleepWhenEmpty,
-        playersParameter: server.playersParameter,
+        worlds: config.worlds,
+        playersParameters: server.playersParameters,
         modsParameter: settings.modsParameter,
         profileCodeParameter: settings.profileCodeParameter,
       });
@@ -48,8 +51,9 @@ export class ValheimServerStack extends cdk.Stack {
     const ip = network.eip.attrPublicIp;
     const instanceId = server.instance.instanceId;
     new cdk.CfnOutput(this, 'PublicIp', { value: ip });
-    new cdk.CfnOutput(this, 'ConnectString', { value: `${ip}:${GAME_PORT}`, description: 'In-game Join IP' });
-    new cdk.CfnOutput(this, 'SteamFavoritesString', { value: `${ip}:${QUERY_PORT}`, description: 'Steam server browser favorites' });
+    const port = config.worlds[0].port;
+    new cdk.CfnOutput(this, 'ConnectString', { value: `${ip}:${port}`, description: 'In-game Join IP' });
+    new cdk.CfnOutput(this, 'SteamFavoritesString', { value: `${ip}:${port + 1}`, description: 'Steam server browser favorites' });
     new cdk.CfnOutput(this, 'InstanceId', { value: instanceId });
     new cdk.CfnOutput(this, 'DataVolumeId', { value: server.dataVolume.volumeId });
     new cdk.CfnOutput(this, 'SecretArn', { value: settings.secret.secretArn });
@@ -57,6 +61,8 @@ export class ValheimServerStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ShellCommand', {
       value: `aws ssm start-session --target ${instanceId} --region ${this.region}`,
     });
+    new cdk.CfnOutput(this, 'TransfersBucket', { value: transfers.bucket.bucketName, description: 'Scratch bucket for save file uploads' });
+    new cdk.CfnOutput(this, 'WorldPorts', { value: config.worlds.map((w) => `${w.name}: ${w.port}`).join('; ') });
     new cdk.CfnOutput(this, 'PasswordCommand', {
       value: `aws secretsmanager get-secret-value --secret-id ${settings.secret.secretArn} --region ${this.region} --query SecretString --output text`,
     });

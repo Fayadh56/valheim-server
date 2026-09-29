@@ -81,3 +81,17 @@ test('turns BepInEx on only when mods are enabled', () => {
   expect(renderCompose(config)).toContain('BEPINEX: "true"');
   expect(renderCompose({ ...config, mods: { ...config.mods, enabled: false } })).not.toContain('BEPINEX');
 });
+
+test('renders one service per world, extras on their own ports and folders', () => {
+  const services = parse(renderCompose(config)).services;
+  expect(Object.keys(services)).toEqual(['valheim', 'valheim-iron-arbiters-world']);
+  const second = services['valheim-iron-arbiters-world'];
+  expect(second.container_name).toBe('valheim-iron-arbiters-world');
+  expect(second.ports).toEqual(['2458-2459:2456-2457/udp']);
+  expect(second.volumes).toEqual(['/opt/valheim/worlds/iron-arbiters-world/config:/config', '/opt/valheim/worlds/iron-arbiters-world/data:/opt/valheim']);
+  expect(second.environment).toMatchObject({ SERVER_NAME: 'valheim-osrs-nerds - Iron Arbiters World', WORLD_NAME: 'Iron Arbiters World', BEPINEX: 'true' });
+  expect(second.environment.POST_SERVER_LISTENING_HOOK).toContain('Valheim Iron Arbiters World is up');
+  expect(services.valheim.environment.POST_SERVER_LISTENING_HOOK).toContain('Valheim OsrsNerds is up');
+  expect(services.valheim.ports).toEqual(['2456-2457:2456-2457/udp']);
+  expect(second.env_file).toEqual(services.valheim.env_file);
+});

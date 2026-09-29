@@ -11,7 +11,7 @@ const aws = (...args: string[]) => execFileSync('aws', [...args, '--region', con
 const output = (key: string) => aws('cloudformation', 'describe-stacks', '--stack-name', 'ValheimServerStack', '--query', `Stacks[0].Outputs[?OutputKey=='${key}'].OutputValue`, '--output', 'text');
 
 const instanceId = output('InstanceId');
-const shell = installScripts({ region: config.region, composeParameterName: output('ComposeParameterName'), secretArn: output('SecretArn') });
+const shell = installScripts({ region: config.region, composeParameterName: output('ComposeParameterName'), secretArn: output('SecretArn'), worlds: config.worlds });
 const parameters = join(mkdtempSync(join(tmpdir(), 'valheim-scripts-')), 'parameters.json');
 writeFileSync(parameters, JSON.stringify({ commands: shell.split('\n') }));
 const commandId = aws('ssm', 'send-command', '--instance-ids', instanceId, '--document-name', 'AWS-RunShellScript', '--comment', 'install valheim instance scripts', '--parameters', `file://${parameters}`, '--query', 'Command.CommandId', '--output', 'text');

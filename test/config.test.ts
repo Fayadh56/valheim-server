@@ -34,8 +34,16 @@ test('rejects a server name with an illegal character', () => {
   expect(() => validateConfig({ ...valid, serverName: 'bad!name' })).toThrow(/serverName/);
 });
 
-test('rejects a world name with a space', () => {
-  expect(() => validateConfig({ ...valid, worldName: 'Osrs Nerds' })).toThrow(/worldName/);
+test('validates the world list', () => {
+  const ok = (worlds: ServerConfig['worlds']) => validateConfig({ ...valid, worlds });
+  expect(() => ok([{ name: 'Osrs Nerds', port: 2456 }])).not.toThrow();
+  expect(() => ok([])).toThrow(/worlds/);
+  expect(() => ok([{ name: 'Bad!', port: 2456 }])).toThrow(/name/);
+  expect(() => ok([{ name: 'A', port: 2456 }, { name: 'A', port: 2458 }])).toThrow(/once/);
+  expect(() => ok([{ name: 'A', port: 2457 }])).toThrow(/even/);
+  expect(() => ok([{ name: 'A', port: 2472 }])).toThrow(/2456 and 2470/);
+  expect(() => ok([{ name: 'A', port: 2456 }, { name: 'B', port: 2456 }])).toThrow(/port 2456 twice/);
+  expect(() => ok([{ name: '---', port: 2456 }])).toThrow(/slug/);
 });
 
 test('rejects a malformed alert email', () => {

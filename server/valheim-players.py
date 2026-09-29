@@ -66,7 +66,7 @@ def publish(roster, parameter, region):
         print(f"publish failed: {error}", file=sys.stderr, flush=True)
 
 
-def follow(parameter, region):
+def follow(parameter, region, container):
     roster = Roster()
     lock = threading.Lock()
 
@@ -77,7 +77,7 @@ def follow(parameter, region):
                 publish(roster, parameter, region)
 
     threading.Thread(target=heartbeat, daemon=True).start()
-    process = subprocess.Popen(["docker", "logs", "-f", "valheim"], stdout=subprocess.PIPE,
+    process = subprocess.Popen(["docker", "logs", "-f", container], stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, errors="replace")
     for line in process.stdout:
         with lock:
@@ -96,8 +96,8 @@ def replay():
 if __name__ == "__main__":
     if "--replay" in sys.argv:
         replay()
-    elif len(sys.argv) == 3:
-        sys.exit(follow(sys.argv[1], sys.argv[2]))
+    elif len(sys.argv) in (3, 4):
+        sys.exit(follow(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) == 4 else "valheim"))
     else:
-        print("usage: valheim-players <parameter-name> <region> | --replay", file=sys.stderr)
+        print("usage: valheim-players <parameter-name> <region> [container] | --replay", file=sys.stderr)
         sys.exit(2)

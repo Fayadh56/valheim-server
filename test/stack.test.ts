@@ -1,6 +1,7 @@
 import { Match } from 'aws-cdk-lib/assertions';
 import { config } from '../lib/config';
 import { MODS_CONFIG_DIR, packagesJson, readConfigOverrides } from '../lib/mods';
+import { worldsEnv } from '../lib/worlds';
 import { synth } from './helpers';
 
 describe('network', () => {
@@ -13,10 +14,11 @@ describe('network', () => {
     template.hasResourceProperties('AWS::EC2::Subnet', { AvailabilityZone: 'us-east-1a', MapPublicIpOnLaunch: true });
   });
 
-  test('security group allows only udp 2456-2457 from anywhere', () => {
+  test('security group allows only udp 2456-2457 and 2458-2459 from anywhere', () => {
     template.hasResourceProperties('AWS::EC2::SecurityGroup', {
       SecurityGroupIngress: [
         Match.objectLike({ IpProtocol: 'udp', FromPort: 2456, ToPort: 2457, CidrIp: '0.0.0.0/0' }),
+        Match.objectLike({ IpProtocol: 'udp', FromPort: 2458, ToPort: 2459, CidrIp: '0.0.0.0/0' }),
       ],
     });
     template.resourceCountIs('AWS::EC2::SecurityGroupIngress', 0);
@@ -49,7 +51,7 @@ describe('server settings', () => {
     const values = Object.values(params).map((p) => p.Properties.Value as string);
     expect(values).toHaveLength(1);
     expect(values[0]).toContain('valheim-server:1.3.0');
-    expect(values[0]).not.toMatch(/SERVER_PASS|2458|9001/);
+    expect(values[0]).not.toMatch(/SERVER_PASS|9001/);
   });
 
   test('publishes the server mod list and an empty profile code', () => {
@@ -108,12 +110,14 @@ describe('server instance', () => {
     expect(json).not.toMatch(/set -[a-z]*x/);
   });
 
-  test('players parameter exists and the instance role may write it', () => {
-    template.hasResourceProperties('AWS::SSM::Parameter', {
-      Name: '/valheim/panel/players',
-      Type: 'String',
-      Value: '{"players":[],"updatedAt":"1970-01-01T00:00:00.000Z"}',
-    });
+  test('one players parameter per world, writable by the instance role, which also reads transfers', () => {
+    for (const name of ['/valheim/panel/players', '/valheim/panel/players-iron-arbiters-world']) {
+      template.hasResourceProperties('AWS::SSM::Parameter', {
+        Name: name,
+        Type: 'String',
+        Value: '{"players":[],"updatedAt":"1970-01-01T00:00:00.000Z"}',
+      });
+    }
     // the parameter arn is a Fn::Join of the partition and a Ref, so match the statement by the parameter's logical id
     const [playersParameterId] = Object.keys(template.findResources('AWS::SSM::Parameter', {
       Properties: Match.objectLike({ Name: '/valheim/panel/players' }),
@@ -122,6 +126,18 @@ describe('server instance', () => {
       .flatMap((p) => p.Properties.PolicyDocument.Statement as Array<{ Action: string | string[]; Resource: unknown }>);
     const writers = statements.filter((s) => String(s.Action).includes('ssm:PutParameter') && JSON.stringify(s.Resource).includes(playersParameterId));
     expect(writers.length).toBeGreaterThanOrEqual(1);
+    const [roleId] = Object.keys(template.findResources('AWS::IAM::Role', {
+      Properties: Match.objectLike({
+        AssumeRolePolicyDocument: Match.objectLike({
+          Statement: Match.arrayWith([Match.objectLike({ Principal: { Service: 'ec2.amazonaws.com' } })]),
+        }),
+      }),
+    }));
+    const rolePolicy = JSON.stringify(Object.values(template.findResources('AWS::IAM::Policy'))
+      .filter((p) => (p.Properties.Roles as Array<{ Ref: string }>).some((r) => r.Ref === roleId))
+      .map((p) => p.Properties.PolicyDocument));
+    expect(rolePolicy).toContain('ssm:PutParameter');
+    expect(rolePolicy).toContain('s3:GetObject');
   });
 
   test('instance role reads the mod parameters and the config path', () => {
@@ -157,6 +173,18 @@ describe('backups', () => {
       }),
     });
     expect(JSON.stringify(template.toJSON())).toContain('service-role/AWSDataLifecycleManagerServiceRole');
+  });
+});
+
+describe('transfers', () => {
+  const template = synth();
+
+  test('a private bucket that forgets uploads after a week', () => {
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      LifecycleConfiguration: { Rules: [Match.objectLike({ ExpirationInDays: 7 })] },
+      PublicAccessBlockConfiguration: Match.objectLike({ BlockPublicAcls: true }),
+    });
+    expect(Object.keys(template.findOutputs('*'))).toContain('TransfersBucket');
   });
 });
 
@@ -242,6 +270,7 @@ describe('cost guard and outputs', () => {
     expect(outputs.sort()).toEqual([
       'ComposeParameterName', 'ConnectString', 'DataVolumeId', 'InstanceId',
       'PanelUrl', 'PasswordCommand', 'PublicIp', 'SecretArn', 'ShellCommand', 'SteamFavoritesString',
+      'TransfersBucket', 'WorldPorts',
     ]);
   });
 
@@ -262,10 +291,10 @@ describe('control panel', () => {
       MemorySize: 256,
       Timeout: 10,
       Environment: { Variables: Match.objectLike({
-        STOP_SCHEDULE_NAME: 'valheim-stop', START_SCHEDULE_NAME: 'valheim-start', GAME_PORT: '2456', QUERY_PORT: '2457',
+        STOP_SCHEDULE_NAME: 'valheim-stop', START_SCHEDULE_NAME: 'valheim-start',
         TIMEZONE: 'America/Toronto', SERVER_NAME: 'valheim-osrs-nerds',
         SLEEP_ENABLED_PARAMETER: '/valheim/panel/sleep-when-empty', EMPTY_SINCE_PARAMETER: '/valheim/panel/empty-since',
-        SLEEP_IDLE_MINUTES: '60', PLAYERS_PARAMETER: '/valheim/panel/players',
+        SLEEP_IDLE_MINUTES: '60', WORLDS: worldsEnv(config.worlds),
         MODS_PARAMETER: '/valheim/mods/packages', PROFILE_CODE_PARAMETER: '/valheim/panel/profile-code',
         SERVER_HOST: { 'Fn::GetAtt': [Match.stringLikeRegexp('^NetworkEip'), 'PublicIp'] },
       }) },
@@ -294,7 +323,7 @@ describe('control panel', () => {
   test('sleep checker: lambda, rate schedule, parameters, scoped policy', () => {
     template.hasResourceProperties('AWS::Lambda::Function', Match.objectLike({
       Timeout: 30,
-      Environment: { Variables: Match.objectLike({ SLEEP_IDLE_MINUTES: '60', EMPTY_SINCE_PARAMETER: '/valheim/panel/empty-since' }) },
+      Environment: { Variables: Match.objectLike({ SLEEP_IDLE_MINUTES: '60', EMPTY_SINCE_PARAMETER: '/valheim/panel/empty-since', WORLDS: worldsEnv(config.worlds) }) },
     }));
     template.hasResourceProperties('AWS::Scheduler::Schedule', Match.objectLike({ Name: 'valheim-sleep-check', State: 'ENABLED', ScheduleExpression: 'rate(10 minutes)' }));
     template.hasResourceProperties('AWS::SSM::Parameter', { Name: '/valheim/panel/sleep-when-empty', Type: 'String', Value: 'false' });
@@ -314,8 +343,8 @@ describe('control panel', () => {
     const off = synth({ panel: { ...config.panel, enabled: false } });
     off.resourceCountIs('AWS::Lambda::Function', 0);
     off.resourceCountIs('AWS::Lambda::Url', 0);
-    // compose, players, packages, profile code, plus one per override file
-    off.resourceCountIs('AWS::SSM::Parameter', 4 + Object.keys(readConfigOverrides(MODS_CONFIG_DIR)).length);
+    // compose, two players, packages, profile code, plus one per override file
+    off.resourceCountIs('AWS::SSM::Parameter', 5 + Object.keys(readConfigOverrides(MODS_CONFIG_DIR)).length);
     off.resourceCountIs('AWS::Scheduler::Schedule', 2);
     expect(Object.keys(off.findOutputs('*'))).not.toContain('PanelUrl');
   });

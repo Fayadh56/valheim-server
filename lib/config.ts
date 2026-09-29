@@ -31,6 +31,14 @@ export interface ModsConfig {
   packages: ModPackage[];
 }
 
+export interface WorldConfig {
+  name: string;
+  port: number;
+}
+
+export const WORLD_PORT_MIN = 2456;
+export const WORLD_PORT_MAX = 2470;
+
 export const DEATH_PENALTIES = ['casual', 'veryeasy', 'easy', 'hard', 'hardcore'] as const;
 
 // Vanilla world modifiers passed at every launch; the game also stores them in the world file
@@ -44,7 +52,7 @@ export interface ServerConfig {
   az: string;
   instanceType: string;
   serverName: string;
-  worldName: string;
+  worlds: WorldConfig[];
   adminSteamIds: string[];
   alertEmail: string;
   budgetUsd: number;
@@ -65,7 +73,19 @@ export function validateConfig(c: ServerConfig): ServerConfig {
   if (!/^\d{12}$/.test(c.account)) errors.push('account must be 12 digits');
   if (!c.az.startsWith(c.region)) errors.push(`az ${c.az} is not in region ${c.region}`);
   if (!/^[A-Za-z0-9 _-]{1,64}$/.test(c.serverName)) errors.push('serverName: letters, digits, space, _ or -, max 64');
-  if (!/^[A-Za-z0-9_-]{1,32}$/.test(c.worldName)) errors.push('worldName: letters, digits, _ or -, max 32');
+  if (c.worlds.length === 0) errors.push('worlds must list at least one world');
+  const names = new Set<string>(); const slugs = new Set<string>(); const ports = new Set<number>();
+  for (const w of c.worlds) {
+    if (!/^[A-Za-z0-9 _-]{1,32}$/.test(w.name)) errors.push(`world name ${JSON.stringify(w.name)}: letters, digits, space, _ or -, max 32`);
+    if (names.has(w.name)) errors.push(`world ${w.name} is listed more than once`);
+    const slug = w.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!slug) errors.push(`world ${JSON.stringify(w.name)} has an empty slug`);
+    if (slugs.has(slug)) errors.push(`worlds ${w.name} and another share the slug ${slug}`);
+    if (w.port % 2 !== 0) errors.push(`world ${w.name}: port must be even, the query port is the next one up`);
+    if (w.port < WORLD_PORT_MIN || w.port > WORLD_PORT_MAX) errors.push(`world ${w.name}: port must be between ${WORLD_PORT_MIN} and ${WORLD_PORT_MAX}`);
+    if (ports.has(w.port)) errors.push(`worlds use port ${w.port} twice`);
+    names.add(w.name); slugs.add(slug); ports.add(w.port);
+  }
   if (c.adminSteamIds.some((id) => !/^\d{17}$/.test(id))) errors.push('adminSteamIds must be 17-digit SteamID64 values');
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.alertEmail)) errors.push('alertEmail is not an email address');
   if (!Number.isInteger(c.budgetUsd) || c.budgetUsd <= 0) errors.push('budgetUsd must be a positive integer');
@@ -99,7 +119,7 @@ export const config: ServerConfig = validateConfig({
   az: 'us-east-1a',
   instanceType: 'm7a.large',
   serverName: 'valheim-osrs-nerds',
-  worldName: 'OsrsNerds',
+  worlds: [{ name: 'OsrsNerds', port: 2456 }, { name: 'Iron Arbiters World', port: 2458 }],
   adminSteamIds: ['76561198097010635'],
   alertEmail: 'fayadh56@gmail.com',
   budgetUsd: 115,

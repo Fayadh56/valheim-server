@@ -6,9 +6,10 @@ import { Construct } from 'constructs';
 import { ServerConfig } from './config';
 import { MODS_CONFIG_PATH } from './mods';
 import { Network } from './network';
-import { PLAYERS_PARAMETER_NAME } from './players-watcher';
 import { ServerSettings } from './server-settings';
+import { Transfers } from './transfers';
 import { buildUserData } from './user-data';
+import { playersParameterName, slugify } from './worlds';
 
 export const UBUNTU_AMI_PARAMETER =
   '/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id';
@@ -18,13 +19,14 @@ export interface ServerInstanceProps {
   config: ServerConfig;
   network: Network;
   settings: ServerSettings;
+  transfers: Transfers;
 }
 
 export class ServerInstance extends Construct {
   readonly instance: ec2.Instance;
   readonly dataVolume: ec2.Volume;
   readonly role: iam.Role;
-  readonly playersParameter: ssm.StringParameter;
+  readonly playersParameters: ssm.StringParameter[];
 
   constructor(scope: Construct, id: string, props: ServerInstanceProps) {
     super(scope, id);
@@ -47,12 +49,16 @@ export class ServerInstance extends Construct {
       ],
     }));
 
-    this.playersParameter = new ssm.StringParameter(this, 'PlayersParameter', {
-      parameterName: PLAYERS_PARAMETER_NAME,
-      stringValue: JSON.stringify({ players: [], updatedAt: '1970-01-01T00:00:00.000Z' }),
-      description: 'Who is online in Valheim, written by the watcher on the instance',
+    this.playersParameters = config.worlds.map((world, index) => {
+      const parameter = new ssm.StringParameter(this, index === 0 ? 'PlayersParameter' : `PlayersParameter${slugify(world.name).replace(/-/g, '')}`, {
+        parameterName: playersParameterName(index, world),
+        stringValue: JSON.stringify({ players: [], updatedAt: '1970-01-01T00:00:00.000Z' }),
+        description: `Who is online in Valheim ${world.name}, written by the watcher on the instance`,
+      });
+      parameter.grantWrite(this.role);
+      return parameter;
     });
-    this.playersParameter.grantWrite(this.role);
+    props.transfers.bucket.grantRead(this.role);
 
     this.dataVolume = new ec2.Volume(this, 'DataVolume', {
       availabilityZone: config.az,
@@ -68,6 +74,7 @@ export class ServerInstance extends Construct {
         dataVolumeId: this.dataVolume.volumeId,
         composeParameterName: settings.composeParameter.parameterName,
         secretArn: settings.secret.secretArn,
+        worlds: config.worlds,
       }),
     );
 

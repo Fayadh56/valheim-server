@@ -1,48 +1,50 @@
 import { stringify } from 'yaml';
 import { ServerConfig } from './config';
+import { containerName, worldPaths } from './worlds';
 
 const IMAGE = 'ghcr.io/community-valheim-tools/valheim-server';
 
 export const ENV_FILE_PATH = '/opt/valheim/.env';
 
 export function composeDefinition(c: ServerConfig): Record<string, unknown> {
-  const environment: Record<string, string> = {
-    SERVER_NAME: c.serverName,
-    WORLD_NAME: c.worldName,
-    SERVER_PUBLIC: 'true',
-    SERVER_ARGS: serverArgs(c),
-    ADMINLIST_IDS: c.adminSteamIds.join(' '),
-    PUID: '1000',
-    PGID: '1000',
-    TZ: c.timezone,
-    UPDATE_CRON: '0 * * * *',
-    UPDATE_IF_IDLE: 'true',
-    RESTART_CRON: '10 5 * * *',
-    BACKUPS: 'true',
-    BACKUPS_CRON: '5 * * * *',
-    BACKUPS_MAX_COUNT: '48',
-    BACKUPS_MAX_AGE: '3',
-  };
-  if (c.discordNotifications) {
-    environment.POST_SERVER_LISTENING_HOOK = discordHook('Valheim server is up');
-    environment.PRE_SERVER_SHUTDOWN_HOOK = discordHook('Valheim server is shutting down');
-  }
-  if (c.mods.enabled) environment.BEPINEX = 'true';
-  return {
-    services: {
-      valheim: {
-        image: `${IMAGE}:${c.imageTag}`,
-        container_name: 'valheim',
-        cap_add: ['sys_nice'],
-        stop_grace_period: '2m',
-        restart: 'unless-stopped',
-        ports: ['2456-2457:2456-2457/udp'],
-        env_file: [ENV_FILE_PATH],
-        environment,
-        volumes: ['/opt/valheim/config:/config', '/opt/valheim/data:/opt/valheim'],
-      },
-    },
-  };
+  const services = Object.fromEntries(c.worlds.map((world, index) => {
+    const name = containerName(index, world);
+    const paths = worldPaths(index, world);
+    const environment: Record<string, string> = {
+      SERVER_NAME: index === 0 ? c.serverName : `${c.serverName} - ${world.name}`,
+      WORLD_NAME: world.name,
+      SERVER_PUBLIC: 'true',
+      SERVER_ARGS: serverArgs(c),
+      ADMINLIST_IDS: c.adminSteamIds.join(' '),
+      PUID: '1000',
+      PGID: '1000',
+      TZ: c.timezone,
+      UPDATE_CRON: '0 * * * *',
+      UPDATE_IF_IDLE: 'true',
+      RESTART_CRON: '10 5 * * *',
+      BACKUPS: 'true',
+      BACKUPS_CRON: '5 * * * *',
+      BACKUPS_MAX_COUNT: '48',
+      BACKUPS_MAX_AGE: '3',
+    };
+    if (c.discordNotifications) {
+      environment.POST_SERVER_LISTENING_HOOK = discordHook(`Valheim ${world.name} is up`);
+      environment.PRE_SERVER_SHUTDOWN_HOOK = discordHook(`Valheim ${world.name} is shutting down`);
+    }
+    if (c.mods.enabled) environment.BEPINEX = 'true';
+    return [name, {
+      image: `${IMAGE}:${c.imageTag}`,
+      container_name: name,
+      cap_add: ['sys_nice'],
+      stop_grace_period: '2m',
+      restart: 'unless-stopped',
+      ports: [`${world.port}-${world.port + 1}:2456-2457/udp`],
+      env_file: [ENV_FILE_PATH],
+      environment,
+      volumes: [`${paths.config}:/config`, `${paths.data}:/opt/valheim`],
+    }];
+  }));
+  return { services };
 }
 
 // `$$` stops compose from interpolating at parse time; the container shell expands

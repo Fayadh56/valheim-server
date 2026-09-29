@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { WorldConfig } from './config';
 import { MODS_CONFIG_PATH, MODS_PARAMETER_NAME } from './mods';
 import { playersWatcherInstall } from './players-watcher';
+import { MOUNT_POINT, worldPaths } from './worlds';
 
-export const MOUNT_POINT = '/opt/valheim';
 export const FETCH_CONFIG_PATH = '/usr/local/bin/valheim-fetch-config';
 export const MODS_SYNC_PATH = '/usr/local/bin/valheim-mods';
 export const MODS_SYNC_SCRIPT = readFileSync(path.join(__dirname, '..', 'server', 'valheim-mods.py'), 'utf8');
@@ -12,6 +13,7 @@ export interface InstanceScriptOptions {
   region: string;
   composeParameterName: string;
   secretArn: string;
+  worlds: WorldConfig[];
 }
 
 export function fetchConfigScript(o: InstanceScriptOptions): string {
@@ -33,7 +35,13 @@ aws ssm get-parameter --region "$REGION" --name ${MODS_PARAMETER_NAME} --query P
 mv ${MOUNT_POINT}/mods.json.tmp ${MOUNT_POINT}/mods.json
 aws ssm get-parameters-by-path --region "$REGION" --path ${MODS_CONFIG_PATH}/ --query 'Parameters[].[Name,Value]' --output json > ${MOUNT_POINT}/mods-config.json.tmp
 mv ${MOUNT_POINT}/mods-config.json.tmp ${MOUNT_POINT}/mods-config.json
-${MODS_SYNC_PATH} sync ${MOUNT_POINT}/mods.json ${MOUNT_POINT}/mods-config.json
+${o.worlds.map((w, i) => worldSetup(worldPaths(i, w))).join('')}`;
+}
+
+function worldSetup(paths: { config: string; data: string }): string {
+  return `mkdir -p ${paths.config} ${paths.data}
+chown 1000:1000 ${paths.config} ${paths.data}
+${MODS_SYNC_PATH} sync ${MOUNT_POINT}/mods.json ${MOUNT_POINT}/mods-config.json --config-root ${paths.config}/bepinex --install-root ${paths.data}/bepinex/BepInEx --cache ${MOUNT_POINT}/mods-cache
 `;
 }
 
@@ -46,5 +54,5 @@ cat > ${MODS_SYNC_PATH} <<'PYEOF'
 ${MODS_SYNC_SCRIPT}
 PYEOF
 chmod 0755 ${MODS_SYNC_PATH}
-${playersWatcherInstall(o.region)}`;
+${playersWatcherInstall(o.region, o.worlds)}`;
 }

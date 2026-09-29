@@ -102,6 +102,15 @@ exports[`cost guard and outputs template snapshot 1`] = `
         ],
       },
     },
+    "TransfersBucket": {
+      "Description": "Scratch bucket for save file uploads",
+      "Value": {
+        "Ref": "TransfersBucket5F697928",
+      },
+    },
+    "WorldPorts": {
+      "Value": "OsrsNerds: 2456; Iron Arbiters World: 2458",
+    },
   },
   "Parameters": {
     "BootstrapVersion": {
@@ -248,10 +257,17 @@ exports[`cost guard and outputs template snapshot 1`] = `
         "SecurityGroupIngress": [
           {
             "CidrIp": "0.0.0.0/0",
-            "Description": "Valheim game and Steam query",
+            "Description": "Valheim OsrsNerds",
             "FromPort": 2456,
             "IpProtocol": "udp",
             "ToPort": 2457,
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Valheim Iron Arbiters World",
+            "FromPort": 2458,
+            "IpProtocol": "udp",
+            "ToPort": 2459,
           },
         ],
         "VpcId": {
@@ -387,14 +403,11 @@ exports[`cost guard and outputs template snapshot 1`] = `
         "Environment": {
           "Variables": {
             "EMPTY_SINCE_PARAMETER": "/valheim/panel/empty-since",
-            "GAME_PORT": "2456",
             "INSTANCE_ID": {
               "Ref": "ServerInstanceE518391B",
             },
             "MODS_PARAMETER": "/valheim/mods/packages",
-            "PLAYERS_PARAMETER": "/valheim/panel/players",
             "PROFILE_CODE_PARAMETER": "/valheim/panel/profile-code",
-            "QUERY_PORT": "2457",
             "SECRET_ARN": {
               "Ref": "SettingsSecretF2BF6B26",
             },
@@ -410,6 +423,7 @@ exports[`cost guard and outputs template snapshot 1`] = `
             "START_SCHEDULE_NAME": "valheim-start",
             "STOP_SCHEDULE_NAME": "valheim-stop",
             "TIMEZONE": "America/Toronto",
+            "WORLDS": "[{"name":"OsrsNerds","port":2456,"queryPort":2457,"playersParameter":"/valheim/panel/players"},{"name":"Iron Arbiters World","port":2458,"queryPort":2459,"playersParameter":"/valheim/panel/players-iron-arbiters-world"}]",
           },
         },
         "Handler": "index.handler",
@@ -638,6 +652,30 @@ exports[`cost guard and outputs template snapshot 1`] = `
                     },
                     ":ssm:us-east-1:623096509435:parameter",
                     {
+                      "Ref": "ServerPlayersParameterironarbitersworld60D25BB1",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:us-east-1:623096509435:parameter",
+                    {
                       "Ref": "SettingsModsParameter9E87135C",
                     },
                   ],
@@ -775,7 +813,6 @@ exports[`cost guard and outputs template snapshot 1`] = `
             "INSTANCE_ID": {
               "Ref": "ServerInstanceE518391B",
             },
-            "QUERY_PORT": "2457",
             "SECRET_ARN": {
               "Ref": "SettingsSecretF2BF6B26",
             },
@@ -787,6 +824,7 @@ exports[`cost guard and outputs template snapshot 1`] = `
             },
             "SLEEP_ENABLED_PARAMETER": "/valheim/panel/sleep-when-empty",
             "SLEEP_IDLE_MINUTES": "60",
+            "WORLDS": "[{"name":"OsrsNerds","port":2456,"queryPort":2457,"playersParameter":"/valheim/panel/players"},{"name":"Iron Arbiters World","port":2458,"queryPort":2459,"playersParameter":"/valheim/panel/players-iron-arbiters-world"}]",
           },
         },
         "Handler": "index.handler",
@@ -1358,7 +1396,12 @@ aws ssm get-parameter --region "$REGION" --name /valheim/mods/packages --query P
 mv /opt/valheim/mods.json.tmp /opt/valheim/mods.json
 aws ssm get-parameters-by-path --region "$REGION" --path /valheim/mods/config/ --query 'Parameters[].[Name,Value]' --output json > /opt/valheim/mods-config.json.tmp
 mv /opt/valheim/mods-config.json.tmp /opt/valheim/mods-config.json
-/usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json
+mkdir -p /opt/valheim/config /opt/valheim/data
+chown 1000:1000 /opt/valheim/config /opt/valheim/data
+/usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json --config-root /opt/valheim/config/bepinex --install-root /opt/valheim/data/bepinex/BepInEx --cache /opt/valheim/mods-cache
+mkdir -p /opt/valheim/worlds/iron-arbiters-world/config /opt/valheim/worlds/iron-arbiters-world/data
+chown 1000:1000 /opt/valheim/worlds/iron-arbiters-world/config /opt/valheim/worlds/iron-arbiters-world/data
+/usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json --config-root /opt/valheim/worlds/iron-arbiters-world/config/bepinex --install-root /opt/valheim/worlds/iron-arbiters-world/data/bepinex/BepInEx --cache /opt/valheim/mods-cache
 EOF
 chmod 0755 /usr/local/bin/valheim-fetch-config
 cat > /usr/local/bin/valheim-mods <<'PYEOF'
@@ -1640,7 +1683,7 @@ def publish(roster, parameter, region):
         print(f"publish failed: {error}", file=sys.stderr, flush=True)
 
 
-def follow(parameter, region):
+def follow(parameter, region, container):
     roster = Roster()
     lock = threading.Lock()
 
@@ -1651,7 +1694,7 @@ def follow(parameter, region):
                 publish(roster, parameter, region)
 
     threading.Thread(target=heartbeat, daemon=True).start()
-    process = subprocess.Popen(["docker", "logs", "-f", "valheim"], stdout=subprocess.PIPE,
+    process = subprocess.Popen(["docker", "logs", "-f", container], stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, errors="replace")
     for line in process.stdout:
         with lock:
@@ -1670,23 +1713,39 @@ def replay():
 if __name__ == "__main__":
     if "--replay" in sys.argv:
         replay()
-    elif len(sys.argv) == 3:
-        sys.exit(follow(sys.argv[1], sys.argv[2]))
+    elif len(sys.argv) in (3, 4):
+        sys.exit(follow(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) == 4 else "valheim"))
     else:
-        print("usage: valheim-players <parameter-name> <region> | --replay", file=sys.stderr)
+        print("usage: valheim-players <parameter-name> <region> [container] | --replay", file=sys.stderr)
         sys.exit(2)
 
 PYEOF
 chmod 0755 /usr/local/bin/valheim-players
 cat > /etc/systemd/system/valheim-players.service <<'EOF'
 [Unit]
-Description=Publish who is online in Valheim to SSM
+Description=Publish who is online in Valheim (valheim) to SSM
 Requires=docker.service
 After=docker.service valheim.service
 StartLimitIntervalSec=0
 
 [Service]
-ExecStart=/usr/bin/python3 /usr/local/bin/valheim-players /valheim/panel/players us-east-1
+ExecStart=/usr/bin/python3 /usr/local/bin/valheim-players /valheim/panel/players us-east-1 valheim
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+cat > /etc/systemd/system/valheim-players-iron-arbiters-world.service <<'EOF'
+[Unit]
+Description=Publish who is online in Valheim (valheim-iron-arbiters-world) to SSM
+Requires=docker.service
+After=docker.service valheim.service
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/bin/valheim-players /valheim/panel/players-iron-arbiters-world us-east-1 valheim-iron-arbiters-world
 Restart=always
 RestartSec=5
 
@@ -1697,6 +1756,8 @@ EOF
 systemctl daemon-reload
 systemctl enable --now valheim-players.service
 systemctl restart valheim-players.service
+systemctl enable --now valheim-players-iron-arbiters-world.service
+systemctl restart valheim-players-iron-arbiters-world.service
 
 cat > /etc/systemd/system/valheim.service <<'EOF'
 [Unit]
@@ -1739,8 +1800,17 @@ systemctl enable --now valheim.service
     },
     "ServerPlayersParameter75C5B915": {
       "Properties": {
-        "Description": "Who is online in Valheim, written by the watcher on the instance",
+        "Description": "Who is online in Valheim OsrsNerds, written by the watcher on the instance",
         "Name": "/valheim/panel/players",
+        "Type": "String",
+        "Value": "{"players":[],"updatedAt":"1970-01-01T00:00:00.000Z"}",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "ServerPlayersParameterironarbitersworld60D25BB1": {
+      "Properties": {
+        "Description": "Who is online in Valheim Iron Arbiters World, written by the watcher on the instance",
+        "Name": "/valheim/panel/players-iron-arbiters-world",
         "Type": "String",
         "Value": "{"players":[],"updatedAt":"1970-01-01T00:00:00.000Z"}",
       },
@@ -1984,6 +2054,55 @@ systemctl enable --now valheim.service
                 ],
               },
             },
+            {
+              "Action": "ssm:PutParameter",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:us-east-1:623096509435:parameter",
+                    {
+                      "Ref": "ServerPlayersParameterironarbitersworld60D25BB1",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "TransfersBucket5F697928",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "TransfersBucket5F697928",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
           ],
           "Version": "2012-10-17",
         },
@@ -2029,15 +2148,52 @@ systemctl enable --now valheim.service
       BACKUPS_MAX_COUNT: "48"
       BACKUPS_MAX_AGE: "3"
       POST_SERVER_LISTENING_HOOK: "curl -sfSL -X POST -H 'Content-Type:
-        application/json' -d '{\\"content\\":\\"Valheim server is up\\"}'
+        application/json' -d '{\\"content\\":\\"Valheim OsrsNerds is up\\"}'
         \\"$$DISCORD_WEBHOOK\\""
       PRE_SERVER_SHUTDOWN_HOOK: "curl -sfSL -X POST -H 'Content-Type:
-        application/json' -d '{\\"content\\":\\"Valheim server is shutting down\\"}'
-        \\"$$DISCORD_WEBHOOK\\""
+        application/json' -d '{\\"content\\":\\"Valheim OsrsNerds is shutting
+        down\\"}' \\"$$DISCORD_WEBHOOK\\""
       BEPINEX: "true"
     volumes:
       - /opt/valheim/config:/config
       - /opt/valheim/data:/opt/valheim
+  valheim-iron-arbiters-world:
+    image: ghcr.io/community-valheim-tools/valheim-server:1.3.0
+    container_name: valheim-iron-arbiters-world
+    cap_add:
+      - sys_nice
+    stop_grace_period: 2m
+    restart: unless-stopped
+    ports:
+      - 2458-2459:2456-2457/udp
+    env_file:
+      - /opt/valheim/.env
+    environment:
+      SERVER_NAME: valheim-osrs-nerds - Iron Arbiters World
+      WORLD_NAME: Iron Arbiters World
+      SERVER_PUBLIC: "true"
+      SERVER_ARGS: -saveinterval 900 -modifier deathpenalty veryeasy
+      ADMINLIST_IDS: "76561198097010635"
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/Toronto
+      UPDATE_CRON: 0 * * * *
+      UPDATE_IF_IDLE: "true"
+      RESTART_CRON: 10 5 * * *
+      BACKUPS: "true"
+      BACKUPS_CRON: 5 * * * *
+      BACKUPS_MAX_COUNT: "48"
+      BACKUPS_MAX_AGE: "3"
+      POST_SERVER_LISTENING_HOOK: "curl -sfSL -X POST -H 'Content-Type:
+        application/json' -d '{\\"content\\":\\"Valheim Iron Arbiters World is
+        up\\"}' \\"$$DISCORD_WEBHOOK\\""
+      PRE_SERVER_SHUTDOWN_HOOK: "curl -sfSL -X POST -H 'Content-Type:
+        application/json' -d '{\\"content\\":\\"Valheim Iron Arbiters World is
+        shutting down\\"}' \\"$$DISCORD_WEBHOOK\\""
+      BEPINEX: "true"
+    volumes:
+      - /opt/valheim/worlds/iron-arbiters-world/config:/config
+      - /opt/valheim/worlds/iron-arbiters-world/data:/opt/valheim
 ",
       },
       "Type": "AWS::SSM::Parameter",
@@ -2457,6 +2613,83 @@ Food Duration Multiplier = 3
       },
       "Type": "AWS::SecretsManager::Secret",
       "UpdateReplacePolicy": "Delete",
+    },
+    "TransfersBucket5F697928": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256",
+              },
+            },
+          ],
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "ExpirationInDays": 7,
+              "Status": "Enabled",
+            },
+          ],
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true,
+        },
+      },
+      "Type": "AWS::S3::Bucket",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "TransfersBucketPolicy7BB7DFF5": {
+      "Properties": {
+        "Bucket": {
+          "Ref": "TransfersBucket5F697928",
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false",
+                },
+              },
+              "Effect": "Deny",
+              "Principal": {
+                "AWS": "*",
+              },
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "TransfersBucket5F697928",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "TransfersBucket5F697928",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::S3::BucketPolicy",
     },
   },
   "Rules": {

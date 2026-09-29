@@ -1,3 +1,4 @@
+import { config } from '../lib/config';
 import { buildUserData, MOUNT_POINT } from '../lib/user-data';
 
 const script = buildUserData({
@@ -5,6 +6,7 @@ const script = buildUserData({
   dataVolumeId: 'vol-0123456789abcdef0',
   composeParameterName: '/valheim/compose',
   secretArn: 'arn:aws:secretsmanager:us-east-1:309448544182:secret:valheim-AbCdEf',
+  worlds: config.worlds,
 });
 
 test('is a strict bash script without xtrace', () => {
@@ -45,6 +47,10 @@ test('fetches compose, secret, mods and overrides at every service start, then s
   expect(script).toContain('aws ssm get-parameter --region "$REGION" --name /valheim/mods/packages');
   expect(script).toContain('aws ssm get-parameters-by-path --region "$REGION" --path /valheim/mods/config/');
   expect(script).toContain('/usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json');
+  expect(script).toContain('mkdir -p /opt/valheim/worlds/iron-arbiters-world/config /opt/valheim/worlds/iron-arbiters-world/data');
+  expect(script).toContain('chown 1000:1000 /opt/valheim/worlds/iron-arbiters-world/config /opt/valheim/worlds/iron-arbiters-world/data');
+  expect(script).toContain('/usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json --config-root /opt/valheim/config/bepinex --install-root /opt/valheim/data/bepinex/BepInEx --cache /opt/valheim/mods-cache');
+  expect(script).toContain('/usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json --config-root /opt/valheim/worlds/iron-arbiters-world/config/bepinex --install-root /opt/valheim/worlds/iron-arbiters-world/data/bepinex/BepInEx --cache /opt/valheim/mods-cache');
   expect(script).toContain("cat > /usr/local/bin/valheim-mods <<'PYEOF'");
   expect(script).toContain('Got character ZDOID from');
   const fetch = script.indexOf('cat > /usr/local/bin/valheim-fetch-config');
@@ -64,7 +70,10 @@ test('installs a systemd unit that stops the container gracefully', () => {
   expect(script).toContain('systemctl enable --now valheim.service');
 });
 
-test('installs the player watcher service', () => {
-  expect(script).toContain('ExecStart=/usr/bin/python3 /usr/local/bin/valheim-players /valheim/panel/players us-east-1');
+test('installs one player watcher per world', () => {
+  expect(script).toContain('ExecStart=/usr/bin/python3 /usr/local/bin/valheim-players /valheim/panel/players us-east-1 valheim');
+  expect(script).toContain('ExecStart=/usr/bin/python3 /usr/local/bin/valheim-players /valheim/panel/players-iron-arbiters-world us-east-1 valheim-iron-arbiters-world');
   expect(script).toContain('systemctl enable --now valheim-players.service');
+  expect(script).toContain('systemctl enable --now valheim-players-iron-arbiters-world.service');
+  expect(script).toContain("cat > /usr/local/bin/valheim-players <<'PYEOF'");
 });

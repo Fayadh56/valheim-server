@@ -75,11 +75,12 @@ instance at `/dev/sdg`, shell in, stop the service, mount it read-only at `/mnt/
 `rsync -a --delete /mnt/restore/config/worlds_local/ /opt/valheim/config/worlds_local/`,
 unmount, start the service, then detach and delete the temporary volume.
 
-## Importing a pre-1.0 world
+## Worlds
 
-Copy `<World>.db` and `<World>.fwl` into `/opt/valheim/config/worlds_local/` on the
-instance, set `worldName` to `<World>`, deploy and restart. The first start converts the
-world to 1.0's directory format. This is one way. Keep a copy of the old files.
+`config.worlds` in `lib/config.ts` lists every world and its port; the first one is the original.
+Each extra world runs as its own container with the same password and mods. To import a save, add
+the world to the list and deploy, then `npm run import-world -- "<name>" <file.db> <file.fwl>`.
+The panel shows every world.
 
 ## Mods
 
