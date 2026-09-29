@@ -5,7 +5,7 @@ import { createSleeper, readSleeperEnv, SLEEP_MESSAGE, SleeperDeps } from '../..
 const now = new Date('2026-09-18T02:00:00Z');
 const ago = (minutes: number) => new Date(now.getTime() - minutes * 60_000).toISOString();
 
-function fake(opts: { state?: string; players?: number | null; enabled?: string; emptySince?: string; webhook?: string } = {}) {
+function fake(opts: { state?: string; players?: number | null; enabled?: string; emptySince?: string; webhook?: string; second?: number | null } = {}) {
   const params: Record<string, string> = { '/p/enabled': opts.enabled ?? 'true', '/p/since': opts.emptySince ?? NO_TIMER };
   const calls: string[] = [];
   let queries = 0;
@@ -23,8 +23,12 @@ function fake(opts: { state?: string; players?: number | null; enabled?: string;
   } as unknown as Aws;
   const deps: SleeperDeps = {
     aws,
-    env: { instanceId: 'i-1', serverHost: 'h', queryPort: 2457, secretArn: 'arn:s', sleepEnabledParameter: '/p/enabled', emptySinceParameter: '/p/since', idleMinutes: 60 },
-    queryPlayers: async () => { queries += 1; return (opts.players === undefined ? { players: 0 } : opts.players === null ? null : { players: opts.players }); },
+    env: { instanceId: 'i-1', serverHost: 'h', worlds: [{ name: 'A', queryPort: 2457 }, { name: 'B', queryPort: 2459 }], secretArn: 'arn:s', sleepEnabledParameter: '/p/enabled', emptySinceParameter: '/p/since', idleMinutes: 60 },
+    queryPlayers: async (_host: string, port: number) => {
+      queries += 1;
+      const players = port === 2459 && opts.second !== undefined ? opts.second : opts.players;
+      return players === undefined ? { players: 0 } : players === null ? null : { players };
+    },
     now: () => now.getTime(),
   };
   return { run: createSleeper(deps), calls, params, queries: () => queries };
@@ -35,7 +39,7 @@ test('marks the timer when the server is empty', async () => {
   await expect(f.run()).resolves.toEqual({ action: 'mark', emptySince: now.toISOString() });
   expect(f.params['/p/since']).toBe(now.toISOString());
   expect(f.calls.filter((c) => c.startsWith('stop'))).toEqual([]);
-  expect(f.queries()).toBe(1);
+  expect(f.queries()).toBe(2);
 });
 
 test('clears the timer when players are online', async () => {
@@ -71,9 +75,18 @@ test('does not query players when the server is not running', async () => {
   expect(f.queries()).toBe(0);
 });
 
+test('sums players across worlds and never stops on a failed query', async () => {
+  const f = fake({ players: 0, second: 2, emptySince: ago(20) });
+  await expect(f.run()).resolves.toEqual({ action: 'clear' });
+  expect(f.queries()).toBe(2);
+  const g = fake({ players: 0, second: null, emptySince: ago(90) });
+  await expect(g.run()).resolves.toEqual({ action: 'none' });
+});
+
 test('readSleeperEnv requires every variable', () => {
-  const full = { INSTANCE_ID: 'i', SERVER_HOST: 'h', QUERY_PORT: '2457', SECRET_ARN: 'a', SLEEP_ENABLED_PARAMETER: '/e', EMPTY_SINCE_PARAMETER: '/s', SLEEP_IDLE_MINUTES: '60' };
-  expect(readSleeperEnv(full)).toEqual({ instanceId: 'i', serverHost: 'h', queryPort: 2457, secretArn: 'a', sleepEnabledParameter: '/e', emptySinceParameter: '/s', idleMinutes: 60 });
+  const full = { INSTANCE_ID: 'i', SERVER_HOST: 'h', WORLDS: JSON.stringify([{ name: 'A', port: 2456, queryPort: 2457, playersParameter: '/p' }]), SECRET_ARN: 'a', SLEEP_ENABLED_PARAMETER: '/e', EMPTY_SINCE_PARAMETER: '/s', SLEEP_IDLE_MINUTES: '60' };
+  expect(readSleeperEnv(full)).toEqual({ instanceId: 'i', serverHost: 'h', worlds: [{ name: 'A', queryPort: 2457 }], secretArn: 'a', sleepEnabledParameter: '/e', emptySinceParameter: '/s', idleMinutes: 60 });
   const { SLEEP_IDLE_MINUTES: _o, ...missing } = full;
   expect(() => readSleeperEnv(missing)).toThrow(/SLEEP_IDLE_MINUTES/);
+  expect(() => readSleeperEnv({ ...full, WORLDS: '[]' })).toThrow(/WORLDS/);
 });

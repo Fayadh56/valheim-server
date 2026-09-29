@@ -15,17 +15,25 @@ export interface SleepView {
   idleMinutes: number;
 }
 
+export interface WorldView {
+  name: string;
+  players?: number;
+  maxPlayers?: number;
+  playerNames?: string[];
+  connectString: string;
+  steamString: string;
+}
+
 export interface PanelView {
   serverName: string;
   state: InstanceState;
   sinceIso?: string;
   players?: number;
   maxPlayers?: number;
-  connectString: string;
-  steamString: string;
   schedule: ScheduleView;
   sleepWhenEmpty: SleepView;
   playerNames?: string[];
+  worlds: WorldView[];
   mods?: ModsView;
   timezone: string;
   message?: string;
@@ -73,6 +81,11 @@ export function playersLine(v: PanelView): string {
   return v.sinceIso ? `${count}, since ${formatTime(v.sinceIso, v.timezone, new Date(v.nowIso))}` : count;
 }
 
+export function worldLine(w: WorldView, state: InstanceState): string {
+  if (state !== 'running') return '';
+  return w.players === undefined ? 'Counting heads' : w.players === 0 ? 'Nobody online yet' : w.players === 1 ? '1 viking online' : `${w.players} vikings online`;
+}
+
 export function idleLine(v: PanelView): string {
   const s = v.sleepWhenEmpty;
   if (v.state !== 'running' || v.players !== 0 || !s.enabled) return '';
@@ -106,6 +119,8 @@ const STYLE = `
   .msg { color: ${C.mist}; margin: -.5rem 0 1.25rem; }
   hr.rule { border: 0; border-top: 1px solid ${C.bronze}; opacity: .5; margin: 1.75rem 0 .25rem; }
   h2 { font-size: 1.25rem; font-weight: 400; margin: 1.5rem 0 .5rem; }
+  h3 { font-size: 1.1rem; font-weight: 400; margin: 1.25rem 0 .25rem; color: ${C.birch}; }
+  .world-count { margin-bottom: .25rem; }
   .row { display: flex; align-items: center; gap: .75rem; margin: .5rem 0; flex-wrap: wrap; }
   .row .label { color: ${C.mist}; flex: 0 0 7.5rem; }
   code { font-family: inherit; font-size: 1.05em; }
@@ -126,7 +141,7 @@ const STYLE = `
   .opt { display: flex; align-items: center; gap: .6rem; margin: .6rem 0; flex-wrap: wrap; }
   .countdown { color: ${C.mist}; margin: 0 0 .75rem 1.7rem; font-size: .95rem; min-height: 1.4em; }
   footer { color: ${C.mist}; margin-top: 2.5rem; font-size: .95rem; }
-  .names { color: ${C.birch}; margin: -1rem 0 1.25rem; }
+  .names { margin: 0 0 .5rem; }
   dialog { background: ${C.pine}; color: ${C.birch}; border: 1px solid ${C.bronze}; border-radius: 12px; padding: 1.25rem 1.5rem; max-width: 22rem; width: calc(100% - 2.5rem); }
   dialog::backdrop { background: rgba(20, 32, 27, .75); }
   dialog h2 { margin: 0 0 .5rem; color: ${C.bronze}; font-size: 1.5rem; }
@@ -192,7 +207,6 @@ export function renderPanel(v: PanelView): string {
       ${longhouse(running, 'hall', running ? 'Longhouse, lit' : 'Longhouse, dark')}
       <h1 id="status" class="status" aria-live="polite">${STATUS_COPY[v.state]}</h1>
       <p id="sub" class="sub">${esc(playersLine(v))}</p>
-      <p id="names" class="names"${v.playerNames && v.playerNames.length ? '' : ' hidden'}>${esc((v.playerNames ?? []).join(', '))}</p>
       <p id="notice" class="msg" hidden></p>
       ${v.message ? `<p id="flash" class="msg">${esc(v.message)}</p>` : ''}
       <form id="actionForm" method="post" action="/action">
@@ -201,8 +215,7 @@ export function renderPanel(v: PanelView): string {
       </form>
       <hr class="rule">
       <h2>Getting in</h2>
-      <div class="row"><span class="label">Join IP</span><code id="join">${esc(v.connectString)}</code><button type="button" class="copy" data-for="join">Copy</button></div>
-      <div class="row"><span class="label">Steam browser</span><code id="steam">${esc(v.steamString)}</code><button type="button" class="copy" data-for="steam">Copy</button></div>
+      ${v.worlds.map((w, i) => worldBlock(w, i, v.state)).join('\n')}
       <p class="note">Password is the one you were given.</p>
       ${v.mods ? modsSection(v.mods) : ''}
       <h2>Night watch</h2>
@@ -225,6 +238,18 @@ export function renderPanel(v: PanelView): string {
     </main>
     <script>${clientScript(v)}</script>`;
   return page(v.serverName, body);
+}
+
+function worldBlock(w: WorldView, i: number, state: InstanceState): string {
+  const line = worldLine(w, state);
+  const names = (w.playerNames ?? []).join(', ');
+  return `<section class="world">
+        <h3>${esc(w.name)}</h3>
+        <p id="world-count-${i}" class="sub world-count"${line ? '' : ' hidden'}>${esc(line)}</p>
+        <p id="world-names-${i}" class="names"${names ? '' : ' hidden'}>${esc(names)}</p>
+        <div class="row"><span class="label">Join IP</span><code id="join-${i}">${esc(w.connectString)}</code><button type="button" class="copy" data-for="join-${i}">Copy</button></div>
+        <div class="row"><span class="label">Steam browser</span><code id="steam-${i}">${esc(w.steamString)}</code><button type="button" class="copy" data-for="steam-${i}">Copy</button></div>
+      </section>`;
 }
 
 function modsSection(m: ModsView): string {
@@ -279,9 +304,14 @@ function clientScript(v: PanelView): string {
     b.textContent = running ? 'Stop the server' : stopped ? 'Start the server' : 'Hold on';
     b.dataset.players = s.players === null ? '0' : String(s.players);
     document.getElementById('actionInput').value = running ? 'stop' : 'start';
-    var names = document.getElementById('names');
-    names.textContent = (s.playerNames || []).join(', ');
-    names.hidden = !(s.playerNames && s.playerNames.length);
+    (s.worlds || []).forEach(function (w, i) {
+      var c = document.getElementById('world-count-' + i), n = document.getElementById('world-names-' + i);
+      if (!c || !n) return;
+      var line = s.state !== 'running' ? '' : w.players === null ? 'Counting heads' : w.players === 0 ? 'Nobody online yet' : w.players === 1 ? '1 viking online' : w.players + ' vikings online';
+      c.textContent = line; c.hidden = !line;
+      var names = (w.playerNames || []).join(', ');
+      n.textContent = names; n.hidden = !names;
+    });
     document.getElementById('idle').textContent = idle(s);
     document.getElementById('updated').textContent = 'Updated ' + fmt(s.updatedAt, s.updatedAt);
     document.getElementById('notice').hidden = true;

@@ -8,12 +8,11 @@ import { parsePlayers } from './players';
 import { cronToTime, timeToCron, validateTime } from './schedule';
 import { NO_TIMER } from './sleep';
 import { buildStatus } from './status';
+import { parseWorlds, WorldEnv } from './worlds';
 
 export interface Env {
   instanceId: string;
   serverHost: string;
-  gamePort: number;
-  queryPort: number;
   secretArn: string;
   stopScheduleName: string;
   startScheduleName: string;
@@ -21,10 +20,10 @@ export interface Env {
   serverName: string;
   sleepEnabledParameter: string;
   emptySinceParameter: string;
-  playersParameter: string;
   sleepIdleMinutes: number;
   modsParameter: string;
   profileCodeParameter: string;
+  worlds: WorldEnv[];
 }
 
 export interface Deps {
@@ -52,8 +51,6 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
   return {
     instanceId: need('INSTANCE_ID'),
     serverHost: need('SERVER_HOST'),
-    gamePort: Number(need('GAME_PORT')),
-    queryPort: Number(need('QUERY_PORT')),
     secretArn: need('SECRET_ARN'),
     stopScheduleName: need('STOP_SCHEDULE_NAME'),
     startScheduleName: need('START_SCHEDULE_NAME'),
@@ -61,10 +58,10 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): Env {
     serverName: need('SERVER_NAME'),
     sleepEnabledParameter: need('SLEEP_ENABLED_PARAMETER'),
     emptySinceParameter: need('EMPTY_SINCE_PARAMETER'),
-    playersParameter: need('PLAYERS_PARAMETER'),
     sleepIdleMinutes: Number(need('SLEEP_IDLE_MINUTES')),
     modsParameter: need('MODS_PARAMETER'),
     profileCodeParameter: need('PROFILE_CODE_PARAMETER'),
+    worlds: parseWorlds(need('WORLDS')),
   };
 }
 
@@ -120,33 +117,47 @@ export function createHandler(deps: Deps) {
   };
 
   async function view(msg?: string): Promise<PanelView> {
-    const [instance, schedules, sleepEnabled, emptySince, playersRaw, modsRaw, codeRaw] = await Promise.all([
+    const [instance, schedules, sleepEnabled, emptySince, modsRaw, codeRaw] = await Promise.all([
       aws.describeInstance(env.instanceId),
       aws.getSchedules(env.stopScheduleName, env.startScheduleName),
       aws.getParameter(env.sleepEnabledParameter),
       aws.getParameter(env.emptySinceParameter),
-      aws.getParameter(env.playersParameter),
       aws.getParameter(env.modsParameter),
       aws.getParameter(env.profileCodeParameter),
     ]);
-    const nowIso = new Date(deps.now()).toISOString();
     const running = instance.state === 'running';
-    const info = running ? await deps.queryPlayers(env.serverHost, env.queryPort) : null;
+    const nowDate = new Date(deps.now());
+    const nowIso = nowDate.toISOString();
+    const worlds = await Promise.all(env.worlds.map(async (w) => {
+      const [info, playersRaw] = await Promise.all([
+        running ? deps.queryPlayers(env.serverHost, w.queryPort) : Promise.resolve(null),
+        aws.getParameter(w.playersParameter),
+      ]);
+      return {
+        name: w.name,
+        players: info?.players,
+        maxPlayers: info?.maxPlayers,
+        playerNames: parsePlayers(playersRaw, nowDate),
+        connectString: `${env.serverHost}:${w.port}`,
+        steamString: `${env.serverHost}:${w.queryPort}`,
+      };
+    }));
+    const known = worlds.filter((w) => w.players !== undefined);
+    const named = worlds.filter((w) => w.playerNames !== undefined);
     return {
       serverName: env.serverName,
       state: toState(instance.state),
       sinceIso: instance.launchTime?.toISOString(),
-      players: info?.players,
-      maxPlayers: info?.maxPlayers,
-      connectString: `${env.serverHost}:${env.gamePort}`,
-      steamString: `${env.serverHost}:${env.queryPort}`,
+      players: known.length ? known.reduce((n, w) => n + (w.players ?? 0), 0) : undefined,
+      maxPlayers: known.length ? known.reduce((n, w) => n + (w.maxPlayers ?? 0), 0) : undefined,
       schedule: { enabled: schedules.enabled, stopAt: cronToTime(schedules.stopCron), startAt: cronToTime(schedules.startCron) },
       sleepWhenEmpty: {
         enabled: sleepEnabled === 'true',
         emptySince: emptySince && emptySince !== NO_TIMER ? emptySince : null,
         idleMinutes: env.sleepIdleMinutes,
       },
-      playerNames: parsePlayers(playersRaw, new Date(nowIso)),
+      playerNames: named.length ? named.flatMap((w) => w.playerNames ?? []).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : undefined,
+      worlds,
       mods: modsView(modsRaw, codeRaw),
       timezone: env.timezone,
       message: msg ? MESSAGES[msg] : undefined,

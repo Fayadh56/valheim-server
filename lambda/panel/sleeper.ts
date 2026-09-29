@@ -1,5 +1,6 @@
 import type { Aws } from './aws';
 import { decide, NO_TIMER, SleepDecision } from './sleep';
+import { parseWorlds } from './worlds';
 
 export const SLEEP_MESSAGE =
   'Nobody was online for an hour, so the hall is going dark. Start it from the panel when you want to play.';
@@ -7,7 +8,7 @@ export const SLEEP_MESSAGE =
 export interface SleeperEnv {
   instanceId: string;
   serverHost: string;
-  queryPort: number;
+  worlds: Array<{ name: string; queryPort: number }>;
   secretArn: string;
   sleepEnabledParameter: string;
   emptySinceParameter: string;
@@ -30,7 +31,7 @@ export function readSleeperEnv(source: NodeJS.ProcessEnv = process.env): Sleeper
   return {
     instanceId: need('INSTANCE_ID'),
     serverHost: need('SERVER_HOST'),
-    queryPort: Number(need('QUERY_PORT')),
+    worlds: parseWorlds(need('WORLDS')).map((w) => ({ name: w.name, queryPort: w.queryPort })),
     secretArn: need('SECRET_ARN'),
     sleepEnabledParameter: need('SLEEP_ENABLED_PARAMETER'),
     emptySinceParameter: need('EMPTY_SINCE_PARAMETER'),
@@ -46,11 +47,12 @@ export function createSleeper(deps: SleeperDeps): () => Promise<SleepDecision> {
       aws.getParameter(env.emptySinceParameter),
       aws.describeInstance(env.instanceId),
     ]);
-    const info = instance.state === 'running' ? await deps.queryPlayers(env.serverHost, env.queryPort) : null;
+    const infos = instance.state === 'running' ? await Promise.all(env.worlds.map((w) => deps.queryPlayers(env.serverHost, w.queryPort))) : [];
+    const players = instance.state !== 'running' ? null : infos.some((i) => i === null) ? null : infos.reduce((n, i) => n + (i?.players ?? 0), 0);
     const decision = decide({
       enabled: enabledValue === 'true',
       state: instance.state,
-      players: info?.players ?? null,
+      players,
       emptySince,
       now: new Date(deps.now()),
       idleMinutes: env.idleMinutes,
@@ -70,7 +72,7 @@ export function createSleeper(deps: SleeperDeps): () => Promise<SleepDecision> {
         }
       }
     }
-    console.log(JSON.stringify({ state: instance.state, players: info?.players ?? null, enabled: enabledValue === 'true', emptySince, decision }));
+    console.log(JSON.stringify({ state: instance.state, players, enabled: enabledValue === 'true', emptySince, decision }));
     return decision;
   };
 }

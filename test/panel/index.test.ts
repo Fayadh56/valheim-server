@@ -15,6 +15,7 @@ function fakeAws(overrides: Partial<Aws> = {}) {
     '/p/enabled': 'true',
     '/p/since': NO_TIMER,
     '/p/players': JSON.stringify({ players: ['Fellesin', 'Halo'], updatedAt: new Date(now - 30_000).toISOString() }),
+    '/p/players-iron': JSON.stringify({ players: ['Sir Freak'], updatedAt: new Date(now - 30_000).toISOString() }),
     '/p/mods': JSON.stringify([{ namespace: 'ValheimModding', name: 'Jotunn', version: '2.30.0' }]),
     '/p/code': 'none',
   };
@@ -38,13 +39,17 @@ function deps(aws: Aws, slept: number[] = []): Deps {
   return {
     aws,
     env: {
-      instanceId: 'i-123', serverHost: '100.29.76.244', gamePort: 2456, queryPort: 2457,
+      instanceId: 'i-123', serverHost: '100.29.76.244',
       secretArn: 'arn:secret', stopScheduleName: 'valheim-stop', startScheduleName: 'valheim-start',
       timezone: 'America/Toronto', serverName: 'valheim-osrs-nerds',
-      sleepEnabledParameter: '/p/enabled', emptySinceParameter: '/p/since', playersParameter: '/p/players', sleepIdleMinutes: 60,
+      sleepEnabledParameter: '/p/enabled', emptySinceParameter: '/p/since', sleepIdleMinutes: 60,
       modsParameter: '/p/mods', profileCodeParameter: '/p/code',
+      worlds: [
+        { name: 'OsrsNerds', port: 2456, queryPort: 2457, playersParameter: '/p/players' },
+        { name: 'Iron Arbiters World', port: 2458, queryPort: 2459, playersParameter: '/p/players-iron' },
+      ],
     },
-    queryPlayers: async () => ({ players: 2, maxPlayers: 10 }),
+    queryPlayers: async (_host, port) => (port === 2457 ? { players: 2, maxPlayers: 10 } : { players: 1, maxPlayers: 10 }),
     sleep: async (ms) => { slept.push(ms); },
     now: () => now,
   };
@@ -99,7 +104,7 @@ test('authenticated GET renders the hall with players, schedule and sleep settin
   const res = await createHandler(deps(fakeAws().aws))(event({ cookie: good(), flash: 'schedule-saved' }));
   expect(res.statusCode).toBe(200);
   expect(res.body).toContain('The hall is open');
-  expect(res.body).toContain('2 vikings online');
+  expect(res.body).toContain('3 vikings online');
   expect(res.body).toContain('value="03:00"');
   expect(res.body).toMatch(/name="sleepWhenEmpty"[^>]*checked/);
   expect(res.body).toContain('Night watch saved.');
@@ -123,9 +128,14 @@ test('status json requires the cookie and mirrors the page data', async () => {
   expect(res.statusCode).toBe(200);
   expect(header(res, 'cache-control')).toBe('no-store');
   const body = JSON.parse(res.body as string);
-  expect(body).toMatchObject({ state: 'running', players: 2, maxPlayers: 10, schedule: { enabled: false, stopAt: '03:00', startAt: '16:00' }, sleepWhenEmpty: { enabled: true, emptySince: null, idleMinutes: 60 } });
+  expect(body).toMatchObject({ state: 'running', players: 3, maxPlayers: 20, schedule: { enabled: false, stopAt: '03:00', startAt: '16:00' }, sleepWhenEmpty: { enabled: true, emptySince: null, idleMinutes: 60 } });
   expect(body.since).toBe(new Date(now - 3_600_000).toISOString());
   expect(body.updatedAt).toBe(new Date(now).toISOString());
+  expect(body.worlds).toEqual([
+    { name: 'OsrsNerds', players: 2, maxPlayers: 10, playerNames: ['Fellesin', 'Halo'], connectString: '100.29.76.244:2456', steamString: '100.29.76.244:2457' },
+    { name: 'Iron Arbiters World', players: 1, maxPlayers: 10, playerNames: ['Sir Freak'], connectString: '100.29.76.244:2458', steamString: '100.29.76.244:2459' },
+  ]);
+  expect(body.playerNames).toEqual(['Fellesin', 'Halo', 'Sir Freak']);
 });
 
 test('empty-since sentinel becomes null, a timestamp passes through', async () => {
@@ -143,25 +153,33 @@ test('player query is skipped when stopped and unknown when it times out', async
   const res = await createHandler(d)(event({ cookie: good() }));
   expect(queried).toBe(0);
   expect(res.body).toContain('The hall is dark');
+  const partial = deps(fakeAws().aws);
+  partial.queryPlayers = async (_host, port) => (port === 2457 ? null : { players: 2, maxPlayers: 10 });
+  const partialBody = (await createHandler(partial)(event({ cookie: good() }))).body;
+  expect(partialBody).toContain('2 vikings online');
+  expect(partialBody).toMatch(/<p id="world-count-0" class="sub world-count">Counting heads<\/p>/);
   const d2 = deps(fakeAws().aws);
   d2.queryPlayers = async () => null;
-  expect((await createHandler(d2)(event({ cookie: good() }))).body).toContain('Counting heads');
+  expect((await createHandler(d2)(event({ cookie: good() }))).body).toMatch(/<p id="sub" class="sub">Counting heads/);
 });
 
 test('names appear on the page and in status json when the watcher is fresh', async () => {
   const f = fakeAws();
   const h = createHandler(deps(f.aws));
-  expect((await h(event({ cookie: good() }))).body).toContain('Fellesin, Halo');
-  expect(JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames).toEqual(['Fellesin', 'Halo']);
+  const body = (await h(event({ cookie: good() }))).body;
+  expect(body).toMatch(/<p id="world-names-0" class="names">Fellesin, Halo<\/p>/);
+  expect(body).toMatch(/<p id="world-names-1" class="names">Sir Freak<\/p>/);
+  expect(JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames).toEqual(['Fellesin', 'Halo', 'Sir Freak']);
 });
 
 test('stale or broken watcher data hides names', async () => {
   const f = fakeAws();
   f.params['/p/players'] = JSON.stringify({ players: ['Fellesin'], updatedAt: new Date(now - 10 * 60_000).toISOString() });
   const h = createHandler(deps(f.aws));
-  expect((await h(event({ cookie: good() }))).body).toMatch(/id="names" class="names" hidden/);
-  expect(JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames).toBeNull();
+  expect((await h(event({ cookie: good() }))).body).toMatch(/id="world-names-0" class="names" hidden/);
+  expect(JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames).toEqual(['Sir Freak']);
   f.params['/p/players'] = 'garbage';
+  f.params['/p/players-iron'] = 'garbage';
   expect(JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames).toBeNull();
 });
 
@@ -252,12 +270,17 @@ test('unknown paths are 404', async () => {
 
 test('readEnv requires every variable and parses numbers', () => {
   const full = {
-    INSTANCE_ID: 'i-1', SERVER_HOST: 'h', GAME_PORT: '2456', QUERY_PORT: '2457', SECRET_ARN: 'a',
+    INSTANCE_ID: 'i-1', SERVER_HOST: 'h', SECRET_ARN: 'a',
     STOP_SCHEDULE_NAME: 's', START_SCHEDULE_NAME: 't', TIMEZONE: 'America/Toronto', SERVER_NAME: 'n',
-    SLEEP_ENABLED_PARAMETER: '/e', EMPTY_SINCE_PARAMETER: '/s', PLAYERS_PARAMETER: '/p', SLEEP_IDLE_MINUTES: '60',
+    SLEEP_ENABLED_PARAMETER: '/e', EMPTY_SINCE_PARAMETER: '/s', SLEEP_IDLE_MINUTES: '60',
     MODS_PARAMETER: '/m', PROFILE_CODE_PARAMETER: '/c',
+    WORLDS: JSON.stringify([{ name: 'A', port: 2456, queryPort: 2457, playersParameter: '/p' }]),
   };
-  expect(readEnv(full)).toMatchObject({ gamePort: 2456, queryPort: 2457, sleepEnabledParameter: '/e', emptySinceParameter: '/s', playersParameter: '/p', sleepIdleMinutes: 60, modsParameter: '/m', profileCodeParameter: '/c' });
+  const env = readEnv(full);
+  expect(env).toMatchObject({ sleepEnabledParameter: '/e', emptySinceParameter: '/s', sleepIdleMinutes: 60, modsParameter: '/m', profileCodeParameter: '/c' });
+  expect(env.worlds[0].queryPort).toBe(2457);
   const { SLEEP_IDLE_MINUTES: _omit, ...missing } = full;
   expect(() => readEnv(missing)).toThrow(/SLEEP_IDLE_MINUTES/);
+  expect(() => readEnv({ ...full, WORLDS: 'nope' })).toThrow(/WORLDS/);
+  expect(() => readEnv({ ...full, WORLDS: '[]' })).toThrow(/WORLDS/);
 });

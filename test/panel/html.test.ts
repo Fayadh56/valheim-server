@@ -1,4 +1,4 @@
-import { formatTime, idleLine, MESSAGES, PanelView, playersLine, renderIconSvg, renderLogin, renderPanel, sleepAfterText, STATUS_COPY } from '../../lambda/panel/html';
+import { formatTime, idleLine, MESSAGES, PanelView, playersLine, renderIconSvg, renderLogin, renderPanel, sleepAfterText, STATUS_COPY, worldLine } from '../../lambda/panel/html';
 
 const now = '2026-09-18T01:05:00.000Z';
 const base: PanelView = {
@@ -7,8 +7,10 @@ const base: PanelView = {
   sinceIso: '2026-09-18T00:02:00.000Z',
   players: 3,
   maxPlayers: 10,
-  connectString: '100.29.76.244:2456',
-  steamString: '100.29.76.244:2457',
+  worlds: [
+    { name: 'OsrsNerds', players: 2, maxPlayers: 10, playerNames: ['Fellesin', 'Halo'], connectString: '100.29.76.244:2456', steamString: '100.29.76.244:2457' },
+    { name: 'Iron Arbiters World', players: 1, maxPlayers: 10, playerNames: ['Sir Freak'], connectString: '100.29.76.244:2458', steamString: '100.29.76.244:2459' },
+  ],
   schedule: { enabled: false, stopAt: '03:00', startAt: '16:00' },
   sleepWhenEmpty: { enabled: true, emptySince: null, idleMinutes: 60 },
   timezone: 'America/Toronto',
@@ -61,6 +63,7 @@ test('running page: lit hall, status copy, stop button, no light styles', () => 
   expect(html).toContain('aria-live="polite"');
   expect(html).toContain('aria-label="Sleep time"');
   expect(html).toContain("Couldn't reach the server status");
+  expect(html).toContain('s.worlds');
 });
 
 test('stopped page: dark hall, start button', () => {
@@ -87,13 +90,30 @@ test('unknown state says so and disables the action', () => {
   expect(html).toMatch(/<button[^>]*id="action"[^>]*disabled/);
 });
 
-test('getting in section and copy buttons', () => {
+test('one getting-in block per world with its count, names and copy buttons', () => {
   const html = renderPanel(base);
-  expect(html).toContain('100.29.76.244:2456');
-  expect(html).toContain('100.29.76.244:2457');
-  expect(html).toMatch(/<button[^>]*class="copy"[^>]*data-for="join"/);
-  expect(html).toMatch(/<button[^>]*class="copy"[^>]*data-for="steam"/);
-  expect(html).toContain('Password is the one you were given.');
+  expect(html).toContain('<h3>OsrsNerds</h3>');
+  expect(html).toContain('<h3>Iron Arbiters World</h3>');
+  expect(html).toMatch(/<p id="world-count-0" class="sub world-count">2 vikings online<\/p>/);
+  expect(html).toMatch(/<p id="world-count-1" class="sub world-count">1 viking online<\/p>/);
+  expect(html).toMatch(/<p id="world-names-0" class="names">Fellesin, Halo<\/p>/);
+  expect(html).toMatch(/<code id="join-1">100\.29\.76\.244:2458<\/code><button type="button" class="copy" data-for="join-1">Copy<\/button>/);
+  expect(html).toMatch(/<code id="steam-0">100\.29\.76\.244:2457<\/code>/);
+  expect(html).not.toContain('id="names"');
+  const stopped = renderPanel({ ...base, state: 'stopped', players: undefined, worlds: base.worlds.map((w) => ({ ...w, players: undefined, playerNames: undefined })) });
+  expect(stopped).toMatch(/<p id="world-count-0" class="sub world-count" hidden><\/p>/);
+  expect(stopped).toMatch(/<p id="world-names-0" class="names" hidden><\/p>/);
+  expect(renderPanel({ ...base, worlds: [{ ...base.worlds[0], players: undefined }, base.worlds[1]] })).toContain('>Counting heads</p>');
+  expect(renderPanel({ ...base, worlds: [{ ...base.worlds[0], name: '<b>x</b>' }, base.worlds[1]] })).toContain('<h3>&lt;b&gt;x&lt;/b&gt;</h3>');
+});
+
+test('worldLine copy', () => {
+  const w = base.worlds[0];
+  expect(worldLine({ ...w, players: undefined }, 'running')).toBe('Counting heads');
+  expect(worldLine({ ...w, players: 0 }, 'running')).toBe('Nobody online yet');
+  expect(worldLine({ ...w, players: 1 }, 'running')).toBe('1 viking online');
+  expect(worldLine({ ...w, players: 4 }, 'running')).toBe('4 vikings online');
+  expect(worldLine(w, 'stopped')).toBe('');
 });
 
 test('night watch form reflects schedule and sleep settings', () => {
@@ -151,14 +171,6 @@ test('icon svg is a standalone 512 mark', () => {
 test('no em dashes anywhere in rendered output', () => {
   expect(renderPanel(base)).not.toContain('\u2014');
   expect(renderLogin()).not.toContain('\u2014');
-});
-
-test('names line shows online characters and hides when unknown or empty', () => {
-  const named = renderPanel({ ...base, playerNames: ['Fellesin', 'Halo'] });
-  expect(named).toMatch(/<p id="names" class="names">Fellesin, Halo<\/p>/);
-  expect(renderPanel(base)).toMatch(/<p id="names" class="names" hidden>/);
-  expect(renderPanel({ ...base, playerNames: [] })).toMatch(/<p id="names" class="names" hidden>/);
-  expect(renderPanel({ ...base, playerNames: ['<b>x</b>'] })).toContain('&lt;b&gt;x&lt;/b&gt;');
 });
 
 test('start and stop confirm through the hall dialog with a browser fallback', () => {
