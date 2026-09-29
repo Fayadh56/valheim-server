@@ -16,16 +16,18 @@ if (index < 0 || files.length === 0) {
 const world = config.worlds[index];
 const bucket = output('TransfersBucket');
 const instanceId = output('InstanceId');
-const prefix = `worlds/${containerName(index, world)}/`;
+const container = containerName(index, world);
+const prefix = `worlds/${container}/`;
+const names = files.map((file) => basename(file));
 for (const file of files) aws('s3', 'cp', file, `s3://${bucket}/${prefix}${basename(file)}`);
 
-const container = containerName(index, world);
 const target = `${worldPaths(index, world).config}/worlds_local`;
 const commands = [
   `running=$(docker ps -q -f name=^${container}$)`,
   `[ -n "$running" ] && docker stop -t 120 ${container}`,
   `mkdir -p ${target}`,
-  `aws s3 cp --recursive s3://${bucket}/${prefix} ${target}/ --region ${config.region}`,
+  // only this import's files, so leftovers from an earlier upload never overwrite a live save
+  ...names.map((name) => `aws s3 cp "s3://${bucket}/${prefix}${name}" "${target}/${name}" --region ${config.region}`),
   `chown -R 1000:1000 ${target}`,
   `ls -la ${target}`,
   `[ -n "$running" ] && docker start ${container} || true`,
