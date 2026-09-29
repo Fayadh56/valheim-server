@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 import { WorldConfig } from './config';
+import { activeWorlds } from './worlds';
 
 export interface NetworkProps {
   az: string;
@@ -29,7 +30,7 @@ export class Network extends Construct {
       description: 'Valheim server: game and query ports only',
       allowAllOutbound: true,
     });
-    for (const world of props.worlds) {
+    for (const world of activeWorlds(props.worlds)) {
       this.securityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.udpRange(world.port, world.port + 1), `Valheim ${world.name}`);
     }
 

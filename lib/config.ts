@@ -34,6 +34,8 @@ export interface ModsConfig {
 export interface WorldConfig {
   name: string;
   port: number;
+  // false keeps the save, folders and port reservation but runs nothing for the world
+  enabled?: boolean;
 }
 
 export const WORLD_PORT_MIN = 2456;
@@ -74,6 +76,7 @@ export function validateConfig(c: ServerConfig): ServerConfig {
   if (!c.az.startsWith(c.region)) errors.push(`az ${c.az} is not in region ${c.region}`);
   if (!/^[A-Za-z0-9 _-]{1,64}$/.test(c.serverName)) errors.push('serverName: letters, digits, space, _ or -, max 64');
   if (c.worlds.length === 0) errors.push('worlds must list at least one world');
+  if (c.worlds[0]?.enabled === false) errors.push('the first world cannot be disabled');
   const names = new Set<string>(); const slugs = new Set<string>(); const ports = new Set<number>();
   for (const w of c.worlds) {
     if (!/^[A-Za-z0-9 _-]{1,32}$/.test(w.name)) errors.push(`world name ${JSON.stringify(w.name)}: letters, digits, space, _ or -, max 32`);
@@ -119,7 +122,7 @@ export const config: ServerConfig = validateConfig({
   az: 'us-east-1a',
   instanceType: 'm7a.large',
   serverName: 'valheim-osrs-nerds',
-  worlds: [{ name: 'OsrsNerds', port: 2456 }, { name: 'Iron Arbiters World', port: 2458 }],
+  worlds: [{ name: 'OsrsNerds', port: 2456 }, { name: 'Iron Arbiters World', port: 2458, enabled: false }],
   adminSteamIds: ['76561198097010635'],
   alertEmail: 'fayadh56@gmail.com',
   budgetUsd: 115,

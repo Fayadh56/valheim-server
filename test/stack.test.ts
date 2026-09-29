@@ -1,8 +1,10 @@
 import { Match } from 'aws-cdk-lib/assertions';
 import { config } from '../lib/config';
 import { MODS_CONFIG_DIR, packagesJson, readConfigOverrides } from '../lib/mods';
-import { worldsEnv } from '../lib/worlds';
+import { activeWorlds, worldsEnv } from '../lib/worlds';
 import { synth } from './helpers';
+
+const twoWorlds = [{ name: 'OsrsNerds', port: 2456 }, { name: 'Iron Arbiters World', port: 2458 }];
 
 describe('network', () => {
   const template = synth();
@@ -15,6 +17,7 @@ describe('network', () => {
   });
 
   test('security group allows only udp 2456-2457 and 2458-2459 from anywhere', () => {
+    const template = synth({ worlds: twoWorlds });
     template.hasResourceProperties('AWS::EC2::SecurityGroup', {
       SecurityGroupIngress: [
         Match.objectLike({ IpProtocol: 'udp', FromPort: 2456, ToPort: 2457, CidrIp: '0.0.0.0/0' }),
@@ -118,6 +121,7 @@ describe('server instance', () => {
   });
 
   test('one players parameter per world, writable by the instance role, which also reads transfers', () => {
+    const template = synth({ worlds: twoWorlds });
     for (const name of ['/valheim/panel/players', '/valheim/panel/players-iron-arbiters-world']) {
       template.hasResourceProperties('AWS::SSM::Parameter', {
         Name: name,
@@ -301,7 +305,7 @@ describe('control panel', () => {
         STOP_SCHEDULE_NAME: 'valheim-stop', START_SCHEDULE_NAME: 'valheim-start',
         TIMEZONE: 'America/Toronto', SERVER_NAME: 'valheim-osrs-nerds',
         SLEEP_ENABLED_PARAMETER: '/valheim/panel/sleep-when-empty', EMPTY_SINCE_PARAMETER: '/valheim/panel/empty-since',
-        SLEEP_IDLE_MINUTES: '60', WORLDS: worldsEnv(config.worlds),
+        SLEEP_IDLE_MINUTES: '60', WORLDS: worldsEnv(activeWorlds(config.worlds)),
         MODS_PARAMETER: '/valheim/mods/packages', PROFILE_CODE_PARAMETER: '/valheim/panel/profile-code',
         SERVER_HOST: { 'Fn::GetAtt': [Match.stringLikeRegexp('^NetworkEip'), 'PublicIp'] },
       }) },
@@ -330,7 +334,7 @@ describe('control panel', () => {
   test('sleep checker: lambda, rate schedule, parameters, scoped policy', () => {
     template.hasResourceProperties('AWS::Lambda::Function', Match.objectLike({
       Timeout: 30,
-      Environment: { Variables: Match.objectLike({ SLEEP_IDLE_MINUTES: '60', EMPTY_SINCE_PARAMETER: '/valheim/panel/empty-since', WORLDS: worldsEnv(config.worlds) }) },
+      Environment: { Variables: Match.objectLike({ SLEEP_IDLE_MINUTES: '60', EMPTY_SINCE_PARAMETER: '/valheim/panel/empty-since', WORLDS: worldsEnv(activeWorlds(config.worlds)) }) },
     }));
     template.hasResourceProperties('AWS::Scheduler::Schedule', Match.objectLike({ Name: 'valheim-sleep-check', State: 'ENABLED', ScheduleExpression: 'rate(10 minutes)' }));
     template.hasResourceProperties('AWS::SSM::Parameter', { Name: '/valheim/panel/sleep-when-empty', Type: 'String', Value: 'false' });
@@ -350,9 +354,21 @@ describe('control panel', () => {
     const off = synth({ panel: { ...config.panel, enabled: false } });
     off.resourceCountIs('AWS::Lambda::Function', 0);
     off.resourceCountIs('AWS::Lambda::Url', 0);
-    // compose, two players, packages, profile code, plus one per override file
-    off.resourceCountIs('AWS::SSM::Parameter', 5 + Object.keys(readConfigOverrides(MODS_CONFIG_DIR)).length);
+    // compose, packages, profile code, one players parameter per active world, plus one per override file
+    off.resourceCountIs('AWS::SSM::Parameter', 3 + activeWorlds(config.worlds).length + Object.keys(readConfigOverrides(MODS_CONFIG_DIR)).length);
     off.resourceCountIs('AWS::Scheduler::Schedule', 2);
     expect(Object.keys(off.findOutputs('*'))).not.toContain('PanelUrl');
+  });
+});
+
+describe('parked world', () => {
+  test('gets no firewall rule, parameter, container, watcher or panel entry', () => {
+    const template = synth({ worlds: [{ name: 'OsrsNerds', port: 2456 }, { name: 'Iron Arbiters World', port: 2458, enabled: false }] });
+    const json = JSON.stringify(template.toJSON());
+    expect(json).not.toMatch(/"FromPort":2458/);
+    expect(json).not.toContain('players-iron-arbiters-world');
+    expect(json).not.toContain('valheim-iron-arbiters-world');
+    expect(json).not.toContain('worlds/iron-arbiters-world');
+    template.hasOutput('WorldPorts', { Value: 'OsrsNerds: 2456' });
   });
 });

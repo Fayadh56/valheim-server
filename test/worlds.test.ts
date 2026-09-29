@@ -1,4 +1,4 @@
-import { containerName, playersParameterName, slugify, worldPaths, worldsEnv } from '../lib/worlds';
+import { activeWorlds, containerName, playersParameterName, slugify, worldPaths, worldsEnv } from '../lib/worlds';
 
 const primary = { name: 'OsrsNerds', port: 2456 };
 const second = { name: 'Iron Arbiters World', port: 2458 };
@@ -23,4 +23,9 @@ test('worlds env carries name, ports and parameter in order', () => {
     { name: 'OsrsNerds', port: 2456, queryPort: 2457, playersParameter: '/valheim/panel/players' },
     { name: 'Iron Arbiters World', port: 2458, queryPort: 2459, playersParameter: '/valheim/panel/players-iron-arbiters-world' },
   ]);
+});
+
+test('active worlds drops only the ones switched off', () => {
+  expect(activeWorlds([primary, { ...second, enabled: false }])).toEqual([primary]);
+  expect(activeWorlds([primary, { ...second, enabled: true }, { name: 'C', port: 2460 }])).toHaveLength(3);
 });

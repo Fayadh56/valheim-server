@@ -44,6 +44,9 @@ test('validates the world list', () => {
   expect(() => ok([{ name: 'A', port: 2472 }])).toThrow(/2456 and 2470/);
   expect(() => ok([{ name: 'A', port: 2456 }, { name: 'B', port: 2456 }])).toThrow(/port 2456 twice/);
   expect(() => ok([{ name: '---', port: 2456 }])).toThrow(/slug/);
+  expect(() => ok([{ name: 'A', port: 2456 }, { name: 'B', port: 2458, enabled: false }])).not.toThrow();
+  expect(() => ok([{ name: 'A', port: 2456, enabled: false }, { name: 'B', port: 2458 }])).toThrow(/first world/);
+  expect(() => ok([{ name: 'A', port: 2456 }, { name: 'B', port: 2456, enabled: false }])).toThrow(/port 2456 twice/);
 });
 
 test('rejects a malformed alert email', () => {

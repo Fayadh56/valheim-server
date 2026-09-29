@@ -21,6 +21,12 @@ export function playersParameterName(index: number, world: WorldConfig): string 
   return index === 0 ? PRIMARY_PLAYERS_PARAMETER : `${PRIMARY_PLAYERS_PARAMETER}-${slugify(world.name)}`;
 }
 
+// Only active worlds get a container, watcher, firewall rule, parameter or panel block.
+// The first world is always active (validated), so indices into this list keep it as the primary.
+export function activeWorlds(worlds: WorldConfig[]): WorldConfig[] {
+  return worlds.filter((w) => w.enabled !== false);
+}
+
 export function worldsEnv(worlds: WorldConfig[]): string {
   return JSON.stringify(worlds.map((w, i) => ({ name: w.name, port: w.port, queryPort: w.port + 1, playersParameter: playersParameterName(i, w) })));
 }

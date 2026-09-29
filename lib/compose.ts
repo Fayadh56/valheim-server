@@ -1,13 +1,13 @@
 import { stringify } from 'yaml';
 import { ServerConfig } from './config';
-import { containerName, worldPaths } from './worlds';
+import { activeWorlds, containerName, worldPaths } from './worlds';
 
 const IMAGE = 'ghcr.io/community-valheim-tools/valheim-server';
 
 export const ENV_FILE_PATH = '/opt/valheim/.env';
 
 export function composeDefinition(c: ServerConfig): Record<string, unknown> {
-  const services = Object.fromEntries(c.worlds.map((world, index) => {
+  const services = Object.fromEntries(activeWorlds(c.worlds).map((world, index) => {
     const name = containerName(index, world);
     const paths = worldPaths(index, world);
     const environment: Record<string, string> = {

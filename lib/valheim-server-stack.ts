@@ -9,6 +9,7 @@ import { Schedule } from './schedule';
 import { ServerInstance } from './server-instance';
 import { ServerSettings } from './server-settings';
 import { Transfers } from './transfers';
+import { activeWorlds } from './worlds';
 
 export interface ValheimServerStackProps extends cdk.StackProps {
   config: ServerConfig;
@@ -19,7 +20,8 @@ export class ValheimServerStack extends cdk.Stack {
     super(scope, id, { ...props, terminationProtection: true });
     const { config } = props;
 
-    const network = new Network(this, 'Network', { az: config.az, worlds: config.worlds });
+    const worlds = activeWorlds(config.worlds);
+    const network = new Network(this, 'Network', { az: config.az, worlds });
     const settings = new ServerSettings(this, 'Settings', { config });
     const transfers = new Transfers(this, 'Transfers');
     const server = new ServerInstance(this, 'Server', { config, network, settings, transfers });
@@ -40,7 +42,7 @@ export class ValheimServerStack extends cdk.Stack {
         timezone: config.timezone,
         serverName: config.serverName,
         sleepWhenEmpty: config.panel.sleepWhenEmpty,
-        worlds: config.worlds,
+        worlds,
         playersParameters: server.playersParameters,
         modsParameter: settings.modsParameter,
         profileCodeParameter: settings.profileCodeParameter,
@@ -62,7 +64,7 @@ export class ValheimServerStack extends cdk.Stack {
       value: `aws ssm start-session --target ${instanceId} --region ${this.region}`,
     });
     new cdk.CfnOutput(this, 'TransfersBucket', { value: transfers.bucket.bucketName, description: 'Scratch bucket for save file uploads' });
-    new cdk.CfnOutput(this, 'WorldPorts', { value: config.worlds.map((w) => `${w.name}: ${w.port}`).join('; ') });
+    new cdk.CfnOutput(this, 'WorldPorts', { value: worlds.map((w) => `${w.name}: ${w.port}`).join('; ') });
     new cdk.CfnOutput(this, 'PasswordCommand', {
       value: `aws secretsmanager get-secret-value --secret-id ${settings.secret.secretArn} --region ${this.region} --query SecretString --output text`,
     });

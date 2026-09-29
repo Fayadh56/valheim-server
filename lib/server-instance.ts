@@ -11,7 +11,7 @@ import { Network } from './network';
 import { ServerSettings } from './server-settings';
 import { Transfers } from './transfers';
 import { buildUserData } from './user-data';
-import { playersParameterName, slugify } from './worlds';
+import { activeWorlds, playersParameterName, slugify } from './worlds';
 
 export const UBUNTU_AMI_PARAMETER =
   '/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id';
@@ -51,7 +51,8 @@ export class ServerInstance extends Construct {
       ],
     }));
 
-    this.playersParameters = config.worlds.map((world, index) => {
+    const worlds = activeWorlds(config.worlds);
+    this.playersParameters = worlds.map((world, index) => {
       const parameter = new ssm.StringParameter(this, index === 0 ? 'PlayersParameter' : `PlayersParameter${slugify(world.name).replace(/-/g, '')}`, {
         parameterName: playersParameterName(index, world),
         stringValue: JSON.stringify({ players: [], updatedAt: '1970-01-01T00:00:00.000Z' }),
@@ -81,7 +82,7 @@ export class ServerInstance extends Construct {
         dataVolumeId: this.dataVolume.volumeId,
         composeParameterName: settings.composeParameter.parameterName,
         secretArn: settings.secret.secretArn,
-        worlds: config.worlds,
+        worlds,
         scripts: {
           modsSync: { bucket: modsSync.s3BucketName, key: modsSync.s3ObjectKey },
           playersWatcher: { bucket: playersWatcher.s3BucketName, key: playersWatcher.s3ObjectKey },

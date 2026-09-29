@@ -82,8 +82,14 @@ test('turns BepInEx on only when mods are enabled', () => {
   expect(renderCompose({ ...config, mods: { ...config.mods, enabled: false } })).not.toContain('BEPINEX');
 });
 
+const twoWorlds = { ...config, worlds: [{ name: 'OsrsNerds', port: 2456 }, { name: 'Iron Arbiters World', port: 2458 }] };
+
+test('leaves a parked world out of the compose file', () => {
+  expect(Object.keys(parse(renderCompose(config)).services)).toEqual(['valheim']);
+});
+
 test('renders one service per world, extras on their own ports and folders', () => {
-  const services = parse(renderCompose(config)).services;
+  const services = parse(renderCompose(twoWorlds)).services;
   expect(Object.keys(services)).toEqual(['valheim', 'valheim-iron-arbiters-world']);
   const second = services['valheim-iron-arbiters-world'];
   expect(second.container_name).toBe('valheim-iron-arbiters-world');
