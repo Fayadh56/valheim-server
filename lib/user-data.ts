@@ -1,5 +1,5 @@
 import { WorldConfig } from './config';
-import { installScripts } from './instance-scripts';
+import { installScripts, ScriptSources } from './instance-scripts';
 import { MOUNT_POINT } from './worlds';
 
 export { MOUNT_POINT } from './worlds';
@@ -10,6 +10,7 @@ export interface UserDataOptions {
   composeParameterName: string;
   secretArn: string;
   worlds: WorldConfig[];
+  scripts: ScriptSources;
 }
 
 export function buildUserData(o: UserDataOptions): string {
@@ -60,7 +61,7 @@ mount -a
 mkdir -p ${MOUNT_POINT}/config ${MOUNT_POINT}/data
 chown -R 1000:1000 ${MOUNT_POINT}/config ${MOUNT_POINT}/data
 
-${installScripts({ region: o.region, composeParameterName: o.composeParameterName, secretArn: o.secretArn, worlds: o.worlds })}
+${installScripts({ region: o.region, composeParameterName: o.composeParameterName, secretArn: o.secretArn, worlds: o.worlds }, o.scripts)}
 
 cat > /etc/systemd/system/valheim.service <<'EOF'
 [Unit]

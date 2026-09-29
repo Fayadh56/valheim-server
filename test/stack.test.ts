@@ -108,6 +108,13 @@ describe('server instance', () => {
     // the fetch script writes SERVER_PASS=%s at runtime; a literal 12-char value would mean a baked password
     expect(json).not.toMatch(/SERVER_PASS=[A-Za-z0-9]{12}/);
     expect(json).not.toMatch(/set -[a-z]*x/);
+    expect(json).toContain('aws s3 cp');
+    expect(json).not.toContain('PYEOF');
+  });
+
+  test('instance role reads the script assets', () => {
+    const policies = Object.values(template.findResources('AWS::IAM::Policy')).map((p) => JSON.stringify(p.Properties.PolicyDocument));
+    expect(policies.some((p) => p.includes('s3:GetObject') && p.includes('cdk-hnb659fds-assets'))).toBe(true);
   });
 
   test('one players parameter per world, writable by the instance role, which also reads transfers', () => {

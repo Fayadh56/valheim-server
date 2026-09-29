@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { WorldConfig } from './config';
 import { MODS_CONFIG_PATH, MODS_PARAMETER_NAME } from './mods';
-import { playersWatcherInstall } from './players-watcher';
+import { installFile, playersWatcherInstall } from './players-watcher';
 import { MOUNT_POINT, worldPaths } from './worlds';
 
 export const FETCH_CONFIG_PATH = '/usr/local/bin/valheim-fetch-config';
@@ -14,6 +14,16 @@ export interface InstanceScriptOptions {
   composeParameterName: string;
   secretArn: string;
   worlds: WorldConfig[];
+}
+
+export interface ScriptLocation {
+  bucket: string;
+  key: string;
+}
+
+export interface ScriptSources {
+  modsSync: ScriptLocation;
+  playersWatcher: ScriptLocation;
 }
 
 export function fetchConfigScript(o: InstanceScriptOptions): string {
@@ -45,14 +55,13 @@ ${MODS_SYNC_PATH} sync ${MOUNT_POINT}/mods.json ${MOUNT_POINT}/mods-config.json 
 `;
 }
 
-// Shared by cloud-init on new instances and by scripts/install-scripts.ts on the live one
-export function installScripts(o: InstanceScriptOptions): string {
+// Shared by cloud-init on new instances and by scripts/install-scripts.ts on the live one.
+// Cloud-init downloads the python scripts from assets because EC2 caps user data at 16 KB.
+export function installScripts(o: InstanceScriptOptions, sources?: ScriptSources): string {
   return `cat > ${FETCH_CONFIG_PATH} <<'EOF'
 ${fetchConfigScript(o)}EOF
 chmod 0755 ${FETCH_CONFIG_PATH}
-cat > ${MODS_SYNC_PATH} <<'PYEOF'
-${MODS_SYNC_SCRIPT}
-PYEOF
-chmod 0755 ${MODS_SYNC_PATH}
-${playersWatcherInstall(o.region, o.worlds)}`;
+${installFile(MODS_SYNC_PATH, MODS_SYNC_SCRIPT, o.region, sources?.modsSync)}
+${playersWatcherInstall(o.region, o.worlds, sources?.playersWatcher)}`;
 }
+

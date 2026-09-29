@@ -1,6 +1,8 @@
+import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as s3assets from 'aws-cdk-lib/aws-s3-assets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { ServerConfig } from './config';
@@ -60,6 +62,11 @@ export class ServerInstance extends Construct {
     });
     props.transfers.bucket.grantRead(this.role);
 
+    const modsSync = new s3assets.Asset(this, 'ModsSyncScript', { path: path.join(__dirname, '..', 'server', 'valheim-mods.py') });
+    const playersWatcher = new s3assets.Asset(this, 'PlayersWatcherScript', { path: path.join(__dirname, '..', 'server', 'valheim-players.py') });
+    modsSync.grantRead(this.role);
+    playersWatcher.grantRead(this.role);
+
     this.dataVolume = new ec2.Volume(this, 'DataVolume', {
       availabilityZone: config.az,
       size: cdk.Size.gibibytes(30),
@@ -75,6 +82,10 @@ export class ServerInstance extends Construct {
         composeParameterName: settings.composeParameter.parameterName,
         secretArn: settings.secret.secretArn,
         worlds: config.worlds,
+        scripts: {
+          modsSync: { bucket: modsSync.s3BucketName, key: modsSync.s3ObjectKey },
+          playersWatcher: { bucket: playersWatcher.s3BucketName, key: playersWatcher.s3ObjectKey },
+        },
       }),
     );
 

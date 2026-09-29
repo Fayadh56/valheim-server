@@ -7,6 +7,7 @@ const script = buildUserData({
   composeParameterName: '/valheim/compose',
   secretArn: 'arn:aws:secretsmanager:us-east-1:309448544182:secret:valheim-AbCdEf',
   worlds: config.worlds,
+  scripts: { modsSync: { bucket: 'assets-bucket', key: 'abc.py' }, playersWatcher: { bucket: 'assets-bucket', key: 'def.py' } },
 });
 
 test('is a strict bash script without xtrace', () => {
@@ -51,8 +52,6 @@ test('fetches compose, secret, mods and overrides at every service start, then s
   expect(script).toContain('chown 1000:1000 /opt/valheim/worlds/iron-arbiters-world/config /opt/valheim/worlds/iron-arbiters-world/data');
   expect(script).toContain('/usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json --config-root /opt/valheim/config/bepinex --install-root /opt/valheim/data/bepinex/BepInEx --cache /opt/valheim/mods-cache');
   expect(script).toContain('/usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json --config-root /opt/valheim/worlds/iron-arbiters-world/config/bepinex --install-root /opt/valheim/worlds/iron-arbiters-world/data/bepinex/BepInEx --cache /opt/valheim/mods-cache');
-  expect(script).toContain("cat > /usr/local/bin/valheim-mods <<'PYEOF'");
-  expect(script).toContain('Got character ZDOID from');
   const fetch = script.indexOf('cat > /usr/local/bin/valheim-fetch-config');
   const unit = script.indexOf('cat > /etc/systemd/system/valheim.service');
   expect(fetch).toBeGreaterThan(0);
@@ -75,5 +74,17 @@ test('installs one player watcher per world', () => {
   expect(script).toContain('ExecStart=/usr/bin/python3 /usr/local/bin/valheim-players /valheim/panel/players-iron-arbiters-world us-east-1 valheim-iron-arbiters-world');
   expect(script).toContain('systemctl enable --now valheim-players.service');
   expect(script).toContain('systemctl enable --now valheim-players-iron-arbiters-world.service');
-  expect(script).toContain("cat > /usr/local/bin/valheim-players <<'PYEOF'");
+});
+
+test('downloads the python scripts instead of embedding them, staying under the 16 KB limit', () => {
+  expect(Buffer.byteLength(script)).toBeLessThan(16384);
+  expect(script).toContain('aws s3 cp s3://assets-bucket/abc.py /usr/local/bin/valheim-mods --region us-east-1');
+  expect(script).toContain('chmod 0755 /usr/local/bin/valheim-mods');
+  expect(script).toContain('aws s3 cp s3://assets-bucket/def.py /usr/local/bin/valheim-players --region us-east-1');
+  expect(script).toContain('chmod 0755 /usr/local/bin/valheim-players');
+  expect(script).not.toContain('PYEOF');
+  expect(script).not.toContain('def follow(');
+  const download = script.indexOf('aws s3 cp s3://assets-bucket/');
+  expect(download).toBeGreaterThan(script.indexOf('awscli.amazonaws.com/v2/install.sh'));
+  expect(download).toBeGreaterThan(script.indexOf('curl -fsS --max-time 5 https://awscli.amazonaws.com/'));
 });
