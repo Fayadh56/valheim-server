@@ -4,6 +4,7 @@ import type { Aws, ScheduleSettings } from '../../lambda/panel/aws';
 import { ICON_180_PNG_BASE64 } from '../../lambda/panel/icon';
 import { createHandler, Deps, readEnv } from '../../lambda/panel/index';
 import { NO_TIMER } from '../../lambda/panel/sleep';
+import { parseWorlds } from '../../lambda/panel/worlds';
 
 const password = 'rEDAfML359Ba';
 const now = 1_800_000_000_000;
@@ -172,6 +173,18 @@ test('names appear on the page and in status json when the watcher is fresh', as
   expect(JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames).toEqual(['Fellesin', 'Halo', 'Sir Freak']);
 });
 
+test('combined names are a sorted union across worlds', async () => {
+  const f = fakeAws();
+  const fresh = (players: string[]) => JSON.stringify({ players, updatedAt: new Date(now - 30_000).toISOString() });
+  const h = createHandler(deps(f.aws));
+  const names = async () => JSON.parse((await h(event({ path: '/status.json', cookie: good() }))).body as string).playerNames;
+  f.params['/p/players'] = fresh(['Zed', 'Fellesin']);
+  f.params['/p/players-iron'] = fresh(['alice']);
+  expect(await names()).toEqual(['alice', 'Fellesin', 'Zed']);
+  f.params['/p/players-iron'] = fresh(['Fellesin', 'alice']);
+  expect(await names()).toEqual(['alice', 'Fellesin', 'Zed']);
+});
+
 test('stale or broken watcher data hides names', async () => {
   const f = fakeAws();
   f.params['/p/players'] = JSON.stringify({ players: ['Fellesin'], updatedAt: new Date(now - 10 * 60_000).toISOString() });
@@ -283,4 +296,6 @@ test('readEnv requires every variable and parses numbers', () => {
   expect(() => readEnv(missing)).toThrow(/SLEEP_IDLE_MINUTES/);
   expect(() => readEnv({ ...full, WORLDS: 'nope' })).toThrow(/WORLDS/);
   expect(() => readEnv({ ...full, WORLDS: '[]' })).toThrow(/WORLDS/);
+  expect(() => parseWorlds('[null]')).toThrow(/WORLDS/);
+  expect(() => parseWorlds('[3]')).toThrow(/WORLDS/);
 });

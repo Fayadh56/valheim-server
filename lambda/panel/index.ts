@@ -156,7 +156,7 @@ export function createHandler(deps: Deps) {
         emptySince: emptySince && emptySince !== NO_TIMER ? emptySince : null,
         idleMinutes: env.sleepIdleMinutes,
       },
-      playerNames: named.length ? named.flatMap((w) => w.playerNames ?? []).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : undefined,
+      playerNames: named.length ? [...new Set(named.flatMap((w) => w.playerNames ?? []))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : undefined,
       worlds,
       mods: modsView(modsRaw, codeRaw),
       timezone: env.timezone,
