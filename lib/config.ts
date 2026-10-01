@@ -147,6 +147,7 @@ export const config: ServerConfig = validateConfig({
       { namespace: 'sighsorry', name: 'InventorySlots', version: '1.5.16' },
       { namespace: 'ASharpPen', name: 'Drop_That', version: '3.1.6' },
       { namespace: 'Hex_Viking', name: 'NowYouSleep', version: '1.0.3', serverOnly: true },
+      { namespace: 'JereKuusela', name: 'Server_devcommands', version: '1.115.0', serverOnly: true },
       { namespace: 'Advize', name: 'PlantEasily', version: '2.2.2', clientOnly: true },
     ],
   },
