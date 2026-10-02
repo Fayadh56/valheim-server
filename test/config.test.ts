@@ -73,6 +73,9 @@ test('rejects bad sleep settings', () => {
 test('rejects an unknown death penalty', () => {
   expect(() => validateConfig({ ...valid, worldModifiers: { deathPenalty: 'brutal' as 'hard' } })).toThrow(/deathPenalty/);
   expect(() => validateConfig({ ...valid, worldModifiers: {} })).not.toThrow();
+  expect(() => validateConfig({ ...valid, worldModifiers: { combat: 'normal' as 'hard' } })).toThrow(/combat/);
+  expect(() => validateConfig({ ...valid, worldModifiers: { raids: 'lots' as 'more' } })).toThrow(/raids/);
+  expect(() => validateConfig({ ...valid, worldModifiers: { combat: 'veryhard', raids: 'muchmore' } })).not.toThrow();
 });
 
 test('rejects bad mod packages', () => {

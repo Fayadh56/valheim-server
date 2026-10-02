@@ -42,10 +42,15 @@ export const WORLD_PORT_MIN = 2456;
 export const WORLD_PORT_MAX = 2470;
 
 export const DEATH_PENALTIES = ['casual', 'veryeasy', 'easy', 'hard', 'hardcore'] as const;
+export const COMBAT_LEVELS = ['veryeasy', 'easy', 'hard', 'veryhard'] as const;
+export const RAID_LEVELS = ['none', 'muchless', 'less', 'more', 'muchmore'] as const;
 
-// Vanilla world modifiers passed at every launch; the game also stores them in the world file
+// Vanilla world modifiers passed at every launch; the game also stores them in the world file.
+// Leaving one out means the game's normal setting.
 export interface WorldModifiers {
   deathPenalty?: (typeof DEATH_PENALTIES)[number];
+  combat?: (typeof COMBAT_LEVELS)[number];
+  raids?: (typeof RAID_LEVELS)[number];
 }
 
 export interface ServerConfig {
@@ -94,8 +99,10 @@ export function validateConfig(c: ServerConfig): ServerConfig {
   if (!Number.isInteger(c.budgetUsd) || c.budgetUsd <= 0) errors.push('budgetUsd must be a positive integer');
   if (!/^\d+\.\d+\.\d+$/.test(c.imageTag)) errors.push('imageTag must be a pinned x.y.z tag, not latest');
   if (!Number.isInteger(c.saveIntervalSeconds) || c.saveIntervalSeconds < 60) errors.push('saveIntervalSeconds must be an integer of at least 60');
-  const penalty = c.worldModifiers.deathPenalty;
-  if (penalty !== undefined && !DEATH_PENALTIES.includes(penalty)) errors.push(`worldModifiers.deathPenalty must be one of ${DEATH_PENALTIES.join(', ')}`);
+  const { deathPenalty, combat, raids } = c.worldModifiers;
+  if (deathPenalty !== undefined && !DEATH_PENALTIES.includes(deathPenalty)) errors.push(`worldModifiers.deathPenalty must be one of ${DEATH_PENALTIES.join(', ')}`);
+  if (combat !== undefined && !COMBAT_LEVELS.includes(combat)) errors.push(`worldModifiers.combat must be one of ${COMBAT_LEVELS.join(', ')}`);
+  if (raids !== undefined && !RAID_LEVELS.includes(raids)) errors.push(`worldModifiers.raids must be one of ${RAID_LEVELS.join(', ')}`);
   if (!HHMM.test(c.schedule.stopAt) || !HHMM.test(c.schedule.startAt)) errors.push('schedule times must be HH:MM (24h)');
   const sleep = c.panel.sleepWhenEmpty;
   if (!Number.isInteger(sleep.idleMinutes) || sleep.idleMinutes < 10) errors.push('panel.sleepWhenEmpty.idleMinutes must be an integer of at least 10');
@@ -128,7 +135,7 @@ export const config: ServerConfig = validateConfig({
   budgetUsd: 115,
   imageTag: '1.3.0',
   saveIntervalSeconds: 900,
-  worldModifiers: { deathPenalty: 'veryeasy' },
+  worldModifiers: { deathPenalty: 'veryeasy', combat: 'hard', raids: 'more' },
   timezone: 'America/Toronto',
   schedule: { enabled: false, stopAt: '03:00', startAt: '16:00' },
   discordNotifications: true,

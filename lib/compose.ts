@@ -55,7 +55,10 @@ function discordHook(message: string): string {
 
 export function serverArgs(c: ServerConfig): string {
   const args = [`-saveinterval ${c.saveIntervalSeconds}`];
-  if (c.worldModifiers.deathPenalty) args.push(`-modifier deathpenalty ${c.worldModifiers.deathPenalty}`);
+  const { deathPenalty, combat, raids } = c.worldModifiers;
+  if (deathPenalty) args.push(`-modifier deathpenalty ${deathPenalty}`);
+  if (combat) args.push(`-modifier combat ${combat}`);
+  if (raids) args.push(`-modifier raids ${raids}`);
   return args.join(' ');
 }
 
