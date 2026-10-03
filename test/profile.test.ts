@@ -1,7 +1,7 @@
 import { unzipSync, strFromU8 } from 'fflate';
 import { parse } from 'yaml';
 import { config } from '../lib/config';
-import { buildExportYaml, buildProfileUpload, joinInstructions, modDisplayNames } from '../lib/profile';
+import { buildExportYaml, buildProfileUpload, codeAnnouncement, joinInstructions, modDisplayNames, webhookMessageUrl } from '../lib/profile';
 
 test('export yaml lists every package with split versions, enabled', () => {
   const doc = parse(buildExportYaml(config.mods));
@@ -31,4 +31,15 @@ test('display names and join instructions', () => {
   expect(text).toContain('r2modman');
   expect(text).toContain('Start modded');
   expect(text).not.toContain('\u2014');
+});
+
+test('announcement carries the code and points at the pinned post', () => {
+  const text = codeAnnouncement('abc-123');
+  expect(text).toContain('abc-123');
+  expect(text).toContain('pinned post');
+});
+
+test('webhook message url drops the query string and appends the message id', () => {
+  expect(webhookMessageUrl('https://discord.com/api/webhooks/1/tok?wait=true', '42')).toBe('https://discord.com/api/webhooks/1/tok/messages/42');
+  expect(webhookMessageUrl('https://discord.com/api/webhooks/1/tok/', '42')).toBe('https://discord.com/api/webhooks/1/tok/messages/42');
 });

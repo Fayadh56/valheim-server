@@ -37,3 +37,13 @@ export function joinInstructions(code: string, panelUrl: string, names: string[]
     `The code is always on the panel too: ${panelUrl}`,
   ].join('\n');
 }
+
+// Short notice posted alongside the edited pinned post, so people get a notification
+export function codeAnnouncement(code: string): string {
+  return `Mods updated. New profile code: ${code}\nIn r2modman: Profiles, Import / Update, From code, paste it, Start modded. Full steps are in the pinned post.`;
+}
+
+// Webhooks can edit their own messages at <webhook>/messages/<id>
+export function webhookMessageUrl(webhook: string, messageId: string): string {
+  return `${webhook.replace(/\?.*$/, '').replace(/\/$/, '')}/messages/${messageId}`;
+}

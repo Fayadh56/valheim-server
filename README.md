@@ -88,6 +88,8 @@ reserved but nothing runs for it and the panel hides it. The first world cannot 
 `config.mods` in `lib/config.ts` pins every package. The server installs exactly those versions at
 each start; friends install the same set with one r2modman profile code, shown on the panel. To
 change mods: edit the list, `npm run deploy`, `npm run server -- restart`, `npm run share-profile`.
+The share keeps one pinned Discord post current (pin it by hand the first time) and posts a short
+notice with each new code; `--no-upload` re-shares the current code, `--no-discord` skips Discord.
 `npm run check-mods` lists which pinned versions Thunderstore has moved past.
 Config overrides go in `server/mods/config/<file>` (only the keys that differ) and ship with the
 deploy. Turning `enabled` off returns the server to vanilla on the next restart.

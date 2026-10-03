@@ -3,7 +3,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { renderCompose } from './compose';
 import { ServerConfig } from './config';
-import { MODS_CONFIG_DIR, MODS_CONFIG_PATH, MODS_PARAMETER_NAME, packagesJson, PROFILE_CODE_PARAMETER_NAME, readConfigOverrides } from './mods';
+import { MODS_CONFIG_DIR, MODS_CONFIG_PATH, MODS_PARAMETER_NAME, packagesJson, PROFILE_CODE_PARAMETER_NAME, PROFILE_MESSAGE_PARAMETER_NAME, readConfigOverrides } from './mods';
 
 export interface ServerSettingsProps {
   config: ServerConfig;
@@ -50,6 +50,11 @@ export class ServerSettings extends Construct {
       parameterName: PROFILE_CODE_PARAMETER_NAME,
       stringValue: 'none',
       description: 'r2modman profile code shown on the panel, written by npm run share-profile',
+    });
+    new ssm.StringParameter(this, 'ProfileMessageParameter', {
+      parameterName: PROFILE_MESSAGE_PARAMETER_NAME,
+      stringValue: 'none',
+      description: 'Discord message id of the pinned join post, written by npm run share-profile',
     });
   }
 }

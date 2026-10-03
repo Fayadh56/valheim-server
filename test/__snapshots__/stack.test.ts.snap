@@ -2204,6 +2204,15 @@ Food Duration Multiplier = 3
       },
       "Type": "AWS::SSM::Parameter",
     },
+    "SettingsProfileMessageParameter85230411": {
+      "Properties": {
+        "Description": "Discord message id of the pinned join post, written by npm run share-profile",
+        "Name": "/valheim/panel/profile-message",
+        "Type": "String",
+        "Value": "none",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
     "SettingsSecretF2BF6B26": {
       "DeletionPolicy": "Delete",
       "Properties": {

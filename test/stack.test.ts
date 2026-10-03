@@ -60,6 +60,7 @@ describe('server settings', () => {
   test('publishes the server mod list and an empty profile code', () => {
     template.hasResourceProperties('AWS::SSM::Parameter', { Name: '/valheim/mods/packages', Type: 'String', Value: packagesJson(config.mods) });
     template.hasResourceProperties('AWS::SSM::Parameter', { Name: '/valheim/panel/profile-code', Type: 'String', Value: 'none' });
+    template.hasResourceProperties('AWS::SSM::Parameter', { Name: '/valheim/panel/profile-message', Type: 'String', Value: 'none' });
     expect(JSON.parse(packagesJson(config.mods)).map((p: { name: string }) => p.name)).toContain('NetworkPerformanceSystem');
   });
 });
@@ -354,8 +355,8 @@ describe('control panel', () => {
     const off = synth({ panel: { ...config.panel, enabled: false } });
     off.resourceCountIs('AWS::Lambda::Function', 0);
     off.resourceCountIs('AWS::Lambda::Url', 0);
-    // compose, packages, profile code, one players parameter per active world, plus one per override file
-    off.resourceCountIs('AWS::SSM::Parameter', 3 + activeWorlds(config.worlds).length + Object.keys(readConfigOverrides(MODS_CONFIG_DIR)).length);
+    // compose, packages, profile code, profile message, one players parameter per active world, plus one per override file
+    off.resourceCountIs('AWS::SSM::Parameter', 4 + activeWorlds(config.worlds).length + Object.keys(readConfigOverrides(MODS_CONFIG_DIR)).length);
     off.resourceCountIs('AWS::Scheduler::Schedule', 2);
     expect(Object.keys(off.findOutputs('*'))).not.toContain('PanelUrl');
   });

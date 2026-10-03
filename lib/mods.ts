@@ -5,6 +5,8 @@ import { ModsConfig } from './config';
 export const MODS_PARAMETER_NAME = '/valheim/mods/packages';
 export const MODS_CONFIG_PATH = '/valheim/mods/config';
 export const PROFILE_CODE_PARAMETER_NAME = '/valheim/panel/profile-code';
+// Discord message id of the pinned join post that share-profile edits in place
+export const PROFILE_MESSAGE_PARAMETER_NAME = '/valheim/panel/profile-message';
 export const MODS_CONFIG_DIR = path.join(__dirname, '..', 'server', 'mods', 'config');
 const PARAMETER_LIMIT = 4096;
 
