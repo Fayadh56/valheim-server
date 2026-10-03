@@ -40,7 +40,7 @@ test('sets the server environment', () => {
     SERVER_NAME: 'valheim-osrs-nerds',
     WORLD_NAME: 'OsrsNerds',
     SERVER_PUBLIC: 'true',
-    SERVER_ARGS: '-saveinterval 900 -modifier deathpenalty veryeasy -modifier combat hard -modifier raids more',
+    SERVER_ARGS: '-saveinterval 900 -modifier deathpenalty veryeasy -modifier combat veryhard -modifier raids more',
     ADMINLIST_IDS: '76561198097010635',
     PUID: '1000',
     PGID: '1000',

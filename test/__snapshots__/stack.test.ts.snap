@@ -1777,7 +1777,7 @@ systemctl enable --now valheim.service
       WORLD_NAME: OsrsNerds
       SERVER_PUBLIC: "true"
       SERVER_ARGS: -saveinterval 900 -modifier deathpenalty veryeasy -modifier combat
-        hard -modifier raids more
+        veryhard -modifier raids more
       ADMINLIST_IDS: "76561198097010635"
       PUID: "1000"
       PGID: "1000"

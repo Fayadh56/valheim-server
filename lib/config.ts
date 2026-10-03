@@ -135,7 +135,7 @@ export const config: ServerConfig = validateConfig({
   budgetUsd: 115,
   imageTag: '1.3.0',
   saveIntervalSeconds: 900,
-  worldModifiers: { deathPenalty: 'veryeasy', combat: 'hard', raids: 'more' },
+  worldModifiers: { deathPenalty: 'veryeasy', combat: 'veryhard', raids: 'more' },
   timezone: 'America/Toronto',
   schedule: { enabled: false, stopAt: '03:00', startAt: '16:00' },
   discordNotifications: true,
