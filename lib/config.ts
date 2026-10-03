@@ -149,7 +149,7 @@ export const config: ServerConfig = validateConfig({
       { namespace: 'ValheimModding', name: 'Jotunn', version: '2.30.2' },
       { namespace: 'MidnightMods', name: 'NetworkPerformanceSystem', version: '1.13.0' },
       { namespace: 'MidnightMods', name: 'ValheimCommunityPatch', version: '0.32.1' },
-      { namespace: 'momos3939', name: 'ForsakenPowerOverhaul', version: '2.2.0' },
+      { namespace: 'OSRSNerds', name: 'ForsakenPowerOverhaul_FaderFix', version: '2.2.1' },
       { namespace: 'xtavim', name: 'BetterConsumables', version: '1.1.0' },
       { namespace: 'sighsorry', name: 'InventorySlots', version: '1.5.17' },
       { namespace: 'ASharpPen', name: 'Drop_That', version: '3.1.6' },
