@@ -81,7 +81,8 @@ unmount, start the service, then detach and delete the temporary volume.
 Each extra world runs as its own container with the same password and mods. To import a save, add
 the world to the list and deploy, then `npm run import-world -- "<name>" <file.db> <file.fwl>`.
 The panel shows every world. `enabled: false` parks a world: its save, folders and port stay
-reserved but nothing runs for it and the panel hides it. The first world cannot be parked.
+reserved but nothing runs for it and the panel hides it. The first world cannot be parked. A world
+can carry its own `worldModifiers`, replacing the stack-wide ones for that world only.
 
 ## Mods
 

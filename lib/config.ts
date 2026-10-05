@@ -36,6 +36,8 @@ export interface WorldConfig {
   port: number;
   // false keeps the save, folders and port reservation but runs nothing for the world
   enabled?: boolean;
+  // replaces the stack-wide worldModifiers for this world only
+  worldModifiers?: WorldModifiers;
 }
 
 export const WORLD_PORT_MIN = 2456;
@@ -99,10 +101,13 @@ export function validateConfig(c: ServerConfig): ServerConfig {
   if (!Number.isInteger(c.budgetUsd) || c.budgetUsd <= 0) errors.push('budgetUsd must be a positive integer');
   if (!/^\d+\.\d+\.\d+$/.test(c.imageTag)) errors.push('imageTag must be a pinned x.y.z tag, not latest');
   if (!Number.isInteger(c.saveIntervalSeconds) || c.saveIntervalSeconds < 60) errors.push('saveIntervalSeconds must be an integer of at least 60');
-  const { deathPenalty, combat, raids } = c.worldModifiers;
-  if (deathPenalty !== undefined && !DEATH_PENALTIES.includes(deathPenalty)) errors.push(`worldModifiers.deathPenalty must be one of ${DEATH_PENALTIES.join(', ')}`);
-  if (combat !== undefined && !COMBAT_LEVELS.includes(combat)) errors.push(`worldModifiers.combat must be one of ${COMBAT_LEVELS.join(', ')}`);
-  if (raids !== undefined && !RAID_LEVELS.includes(raids)) errors.push(`worldModifiers.raids must be one of ${RAID_LEVELS.join(', ')}`);
+  const checkModifiers = (m: WorldModifiers, label: string) => {
+    if (m.deathPenalty !== undefined && !DEATH_PENALTIES.includes(m.deathPenalty)) errors.push(`${label}.deathPenalty must be one of ${DEATH_PENALTIES.join(', ')}`);
+    if (m.combat !== undefined && !COMBAT_LEVELS.includes(m.combat)) errors.push(`${label}.combat must be one of ${COMBAT_LEVELS.join(', ')}`);
+    if (m.raids !== undefined && !RAID_LEVELS.includes(m.raids)) errors.push(`${label}.raids must be one of ${RAID_LEVELS.join(', ')}`);
+  };
+  checkModifiers(c.worldModifiers, 'worldModifiers');
+  for (const w of c.worlds) if (w.worldModifiers) checkModifiers(w.worldModifiers, `world ${w.name} worldModifiers`);
   if (!HHMM.test(c.schedule.stopAt) || !HHMM.test(c.schedule.startAt)) errors.push('schedule times must be HH:MM (24h)');
   const sleep = c.panel.sleepWhenEmpty;
   if (!Number.isInteger(sleep.idleMinutes) || sleep.idleMinutes < 10) errors.push('panel.sleepWhenEmpty.idleMinutes must be an integer of at least 10');
@@ -129,7 +134,12 @@ export const config: ServerConfig = validateConfig({
   az: 'us-east-1a',
   instanceType: 'm7a.large',
   serverName: 'valheim-osrs-nerds',
-  worlds: [{ name: 'OsrsNerds', port: 2456 }, { name: 'Iron Arbiters World', port: 2458, enabled: false }],
+  worlds: [
+    { name: 'OsrsNerds', port: 2456 },
+    { name: 'Iron Arbiters World', port: 2458, enabled: false },
+    // ninebyte and Dhakhar's hand-built RPG map: balanced for vanilla, raids off per its readme
+    { name: 'RPGWorld', port: 2460, worldModifiers: { deathPenalty: 'veryeasy', raids: 'none' } },
+  ],
   adminSteamIds: ['76561198097010635'],
   alertEmail: 'fayadh56@gmail.com',
   budgetUsd: 115,

@@ -1,5 +1,5 @@
 import { stringify } from 'yaml';
-import { ServerConfig } from './config';
+import { ServerConfig, WorldConfig } from './config';
 import { activeWorlds, containerName, worldPaths } from './worlds';
 
 const IMAGE = 'ghcr.io/community-valheim-tools/valheim-server';
@@ -14,7 +14,7 @@ export function composeDefinition(c: ServerConfig): Record<string, unknown> {
       SERVER_NAME: index === 0 ? c.serverName : `${c.serverName} - ${world.name}`,
       WORLD_NAME: world.name,
       SERVER_PUBLIC: 'true',
-      SERVER_ARGS: serverArgs(c),
+      SERVER_ARGS: serverArgs(c, world),
       ADMINLIST_IDS: c.adminSteamIds.join(' '),
       PUID: '1000',
       PGID: '1000',
@@ -53,9 +53,9 @@ function discordHook(message: string): string {
   return `curl -sfSL -X POST -H 'Content-Type: application/json' -d '{"content":"${message}"}' "$$DISCORD_WEBHOOK"`;
 }
 
-export function serverArgs(c: ServerConfig): string {
+export function serverArgs(c: ServerConfig, world?: WorldConfig): string {
   const args = [`-saveinterval ${c.saveIntervalSeconds}`];
-  const { deathPenalty, combat, raids } = c.worldModifiers;
+  const { deathPenalty, combat, raids } = world?.worldModifiers ?? c.worldModifiers;
   if (deathPenalty) args.push(`-modifier deathpenalty ${deathPenalty}`);
   if (combat) args.push(`-modifier combat ${combat}`);
   if (raids) args.push(`-modifier raids ${raids}`);

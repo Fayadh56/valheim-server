@@ -109,7 +109,7 @@ exports[`cost guard and outputs template snapshot 1`] = `
       },
     },
     "WorldPorts": {
-      "Value": "OsrsNerds: 2456",
+      "Value": "OsrsNerds: 2456; RPGWorld: 2460",
     },
   },
   "Parameters": {
@@ -261,6 +261,13 @@ exports[`cost guard and outputs template snapshot 1`] = `
             "FromPort": 2456,
             "IpProtocol": "udp",
             "ToPort": 2457,
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Valheim RPGWorld",
+            "FromPort": 2460,
+            "IpProtocol": "udp",
+            "ToPort": 2461,
           },
         ],
         "VpcId": {
@@ -416,7 +423,7 @@ exports[`cost guard and outputs template snapshot 1`] = `
             "START_SCHEDULE_NAME": "valheim-start",
             "STOP_SCHEDULE_NAME": "valheim-stop",
             "TIMEZONE": "America/Toronto",
-            "WORLDS": "[{"name":"OsrsNerds","port":2456,"queryPort":2457,"playersParameter":"/valheim/panel/players"}]",
+            "WORLDS": "[{"name":"OsrsNerds","port":2456,"queryPort":2457,"playersParameter":"/valheim/panel/players"},{"name":"RPGWorld","port":2460,"queryPort":2461,"playersParameter":"/valheim/panel/players-rpgworld"}]",
           },
         },
         "Handler": "index.handler",
@@ -645,6 +652,30 @@ exports[`cost guard and outputs template snapshot 1`] = `
                     },
                     ":ssm:us-east-1:623096509435:parameter",
                     {
+                      "Ref": "ServerPlayersParameterrpgworld774B5C40",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:us-east-1:623096509435:parameter",
+                    {
                       "Ref": "SettingsModsParameter9E87135C",
                     },
                   ],
@@ -793,7 +824,7 @@ exports[`cost guard and outputs template snapshot 1`] = `
             },
             "SLEEP_ENABLED_PARAMETER": "/valheim/panel/sleep-when-empty",
             "SLEEP_IDLE_MINUTES": "60",
-            "WORLDS": "[{"name":"OsrsNerds","port":2456,"queryPort":2457,"playersParameter":"/valheim/panel/players"}]",
+            "WORLDS": "[{"name":"OsrsNerds","port":2456,"queryPort":2457,"playersParameter":"/valheim/panel/players"},{"name":"RPGWorld","port":2460,"queryPort":2461,"playersParameter":"/valheim/panel/players-rpgworld"}]",
           },
         },
         "Handler": "index.handler",
@@ -1368,6 +1399,9 @@ mv /opt/valheim/mods-config.json.tmp /opt/valheim/mods-config.json
 mkdir -p /opt/valheim/config /opt/valheim/data
 chown 1000:1000 /opt/valheim/config /opt/valheim/data
 /usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json --config-root /opt/valheim/config/bepinex --install-root /opt/valheim/data/bepinex/BepInEx --cache /opt/valheim/mods-cache
+mkdir -p /opt/valheim/worlds/rpgworld/config /opt/valheim/worlds/rpgworld/data
+chown 1000:1000 /opt/valheim/worlds/rpgworld/config /opt/valheim/worlds/rpgworld/data
+/usr/local/bin/valheim-mods sync /opt/valheim/mods.json /opt/valheim/mods-config.json --config-root /opt/valheim/worlds/rpgworld/config/bepinex --install-root /opt/valheim/worlds/rpgworld/data/bepinex/BepInEx --cache /opt/valheim/mods-cache
 EOF
 chmod 0755 /usr/local/bin/valheim-fetch-config
 aws s3 cp s3://cdk-hnb659fds-assets-623096509435-us-east-1/606ad3172fd0bcc72f3085f9e8d95cf890c8da05114b1490a1e6c1fd55a9b7eb.py /usr/local/bin/valheim-mods --region us-east-1
@@ -1390,9 +1424,27 @@ RestartSec=5
 WantedBy=multi-user.target
 
 EOF
+cat > /etc/systemd/system/valheim-players-rpgworld.service <<'EOF'
+[Unit]
+Description=Publish who is online in Valheim (valheim-rpgworld) to SSM
+Requires=docker.service
+After=docker.service valheim.service
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/bin/valheim-players /valheim/panel/players-rpgworld us-east-1 valheim-rpgworld
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
 systemctl daemon-reload
 systemctl enable --now valheim-players.service
 systemctl restart valheim-players.service
+systemctl enable --now valheim-players-rpgworld.service
+systemctl restart valheim-players-rpgworld.service
 
 cat > /etc/systemd/system/valheim.service <<'EOF'
 [Unit]
@@ -1437,6 +1489,15 @@ systemctl enable --now valheim.service
       "Properties": {
         "Description": "Who is online in Valheim OsrsNerds, written by the watcher on the instance",
         "Name": "/valheim/panel/players",
+        "Type": "String",
+        "Value": "{"players":[],"updatedAt":"1970-01-01T00:00:00.000Z"}",
+      },
+      "Type": "AWS::SSM::Parameter",
+    },
+    "ServerPlayersParameterrpgworld774B5C40": {
+      "Properties": {
+        "Description": "Who is online in Valheim RPGWorld, written by the watcher on the instance",
+        "Name": "/valheim/panel/players-rpgworld",
         "Type": "String",
         "Value": "{"players":[],"updatedAt":"1970-01-01T00:00:00.000Z"}",
       },
@@ -1681,6 +1742,25 @@ systemctl enable --now valheim.service
               },
             },
             {
+              "Action": "ssm:PutParameter",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:us-east-1:623096509435:parameter",
+                    {
+                      "Ref": "ServerPlayersParameterrpgworld774B5C40",
+                    },
+                  ],
+                ],
+              },
+            },
+            {
               "Action": [
                 "s3:GetObject*",
                 "s3:GetBucket*",
@@ -1799,6 +1879,43 @@ systemctl enable --now valheim.service
     volumes:
       - /opt/valheim/config:/config
       - /opt/valheim/data:/opt/valheim
+  valheim-rpgworld:
+    image: ghcr.io/community-valheim-tools/valheim-server:1.3.0
+    container_name: valheim-rpgworld
+    cap_add:
+      - sys_nice
+    stop_grace_period: 2m
+    restart: unless-stopped
+    ports:
+      - 2460-2461:2456-2457/udp
+    env_file:
+      - /opt/valheim/.env
+    environment:
+      SERVER_NAME: valheim-osrs-nerds - RPGWorld
+      WORLD_NAME: RPGWorld
+      SERVER_PUBLIC: "true"
+      SERVER_ARGS: -saveinterval 900 -modifier deathpenalty veryeasy -modifier raids none
+      ADMINLIST_IDS: "76561198097010635"
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/Toronto
+      UPDATE_CRON: 0 * * * *
+      UPDATE_IF_IDLE: "true"
+      RESTART_CRON: 10 5 * * *
+      BACKUPS: "true"
+      BACKUPS_CRON: 5 * * * *
+      BACKUPS_MAX_COUNT: "48"
+      BACKUPS_MAX_AGE: "3"
+      POST_SERVER_LISTENING_HOOK: "curl -sfSL -X POST -H 'Content-Type:
+        application/json' -d '{\\"content\\":\\"Valheim RPGWorld is up\\"}'
+        \\"$$DISCORD_WEBHOOK\\""
+      PRE_SERVER_SHUTDOWN_HOOK: "curl -sfSL -X POST -H 'Content-Type:
+        application/json' -d '{\\"content\\":\\"Valheim RPGWorld is shutting
+        down\\"}' \\"$$DISCORD_WEBHOOK\\""
+      BEPINEX: "true"
+    volumes:
+      - /opt/valheim/worlds/rpgworld/config:/config
+      - /opt/valheim/worlds/rpgworld/data:/opt/valheim
 ",
       },
       "Type": "AWS::SSM::Parameter",

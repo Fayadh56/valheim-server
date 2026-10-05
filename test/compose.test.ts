@@ -86,7 +86,15 @@ test('turns BepInEx on only when mods are enabled', () => {
 const twoWorlds = { ...config, worlds: [{ name: 'OsrsNerds', port: 2456 }, { name: 'Iron Arbiters World', port: 2458 }] };
 
 test('leaves a parked world out of the compose file', () => {
-  expect(Object.keys(parse(renderCompose(config)).services)).toEqual(['valheim']);
+  const parked = { ...config, worlds: [{ name: 'OsrsNerds', port: 2456 }, { name: 'Iron Arbiters World', port: 2458, enabled: false }] };
+  expect(Object.keys(parse(renderCompose(parked)).services)).toEqual(['valheim']);
+});
+
+test('a world with its own modifiers gets its own launch arguments', () => {
+  const services = parse(renderCompose(config)).services;
+  expect(services.valheim.environment.SERVER_ARGS).toBe('-saveinterval 900 -modifier deathpenalty veryeasy -modifier combat veryhard -modifier raids more');
+  expect(services['valheim-rpgworld'].environment.SERVER_ARGS).toBe('-saveinterval 900 -modifier deathpenalty veryeasy -modifier raids none');
+  expect(services['valheim-rpgworld'].ports).toEqual(['2460-2461:2456-2457/udp']);
 });
 
 test('renders one service per world, extras on their own ports and folders', () => {
