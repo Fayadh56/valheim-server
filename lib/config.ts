@@ -140,7 +140,7 @@ export const config: ServerConfig = validateConfig({
     // ninebyte and Dhakhar's hand-built RPG map: balanced for vanilla, raids off per its readme
     { name: 'RPGWorld', port: 2460, worldModifiers: { deathPenalty: 'veryeasy', raids: 'none' } },
   ],
-  adminSteamIds: ['76561198097010635'],
+  adminSteamIds: ['76561198097010635', '76561198809907339'],
   alertEmail: 'fayadh56@gmail.com',
   budgetUsd: 115,
   imageTag: '1.3.0',

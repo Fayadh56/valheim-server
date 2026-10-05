@@ -41,7 +41,7 @@ test('sets the server environment', () => {
     WORLD_NAME: 'OsrsNerds',
     SERVER_PUBLIC: 'true',
     SERVER_ARGS: '-saveinterval 900 -modifier deathpenalty veryeasy -modifier combat veryhard -modifier raids more',
-    ADMINLIST_IDS: '76561198097010635',
+    ADMINLIST_IDS: '76561198097010635 76561198809907339',
     PUID: '1000',
     PGID: '1000',
     TZ: 'America/Toronto',

@@ -1858,7 +1858,7 @@ systemctl enable --now valheim.service
       SERVER_PUBLIC: "true"
       SERVER_ARGS: -saveinterval 900 -modifier deathpenalty veryeasy -modifier combat
         veryhard -modifier raids more
-      ADMINLIST_IDS: "76561198097010635"
+      ADMINLIST_IDS: 76561198097010635 76561198809907339
       PUID: "1000"
       PGID: "1000"
       TZ: America/Toronto
@@ -1895,7 +1895,7 @@ systemctl enable --now valheim.service
       WORLD_NAME: RPGWorld
       SERVER_PUBLIC: "true"
       SERVER_ARGS: -saveinterval 900 -modifier deathpenalty veryeasy -modifier raids none
-      ADMINLIST_IDS: "76561198097010635"
+      ADMINLIST_IDS: 76561198097010635 76561198809907339
       PUID: "1000"
       PGID: "1000"
       TZ: America/Toronto
